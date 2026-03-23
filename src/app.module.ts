@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { WsGateway } from './ws/ws.gateway';
 import { RabbitmqService } from './rabbitmq/rabbitmq.service';
-import {ConfigModule} from "@nestjs/config";
-import {AppConfig} from "./app.config";
+import { ConfigModule } from '@nestjs/config';
+import { AppConfig } from './app.config';
 
 @Module({
   imports: [

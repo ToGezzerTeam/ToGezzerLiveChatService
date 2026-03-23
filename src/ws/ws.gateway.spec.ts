@@ -1,14 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsGateway } from './ws.gateway';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
+import type { Socket } from 'node:net';
+
+type SentMessage = {
+  createdAt: number;
+  roomId?: string;
+  authorId?: string;
+  answerTo?: string;
+  uuid?: string;
+  state?: string;
+  content?: {
+    type?: string;
+    value?: string;
+  };
+};
 
 describe('WsGateway', () => {
   let gateway: WsGateway;
-  let rabbitmqService: RabbitmqService;
 
+  const emitMock = jest.fn();
   const mockClient = {
     emit: jest.fn(),
-  } as any;
+  } as unknown as Socket;
 
   const mockRabbitmqService = {
     sendMessage: jest.fn(),
@@ -25,7 +39,7 @@ describe('WsGateway', () => {
     }).compile();
 
     gateway = module.get<WsGateway>(WsGateway);
-    rabbitmqService = module.get<RabbitmqService>(RabbitmqService);
+    (mockClient.emit as unknown as jest.Mock) = emitMock;
   });
 
   it('should be defined', () => {
@@ -33,18 +47,33 @@ describe('WsGateway', () => {
   });
 
   it('should call RabbitmqService.sendMessage and emit response', async () => {
-    const message = { text: 'Hello World' };
+    const message = {
+      roomId: 'room-123',
+      authorId: 'author-1',
+      state: 'created',
+      content: { type: 'text', value: 'Hello World' },
+    };
 
     await gateway.handleMessage(message, mockClient);
 
-    expect(rabbitmqService.sendMessage).toHaveBeenCalledTimes(1);
+    expect(mockRabbitmqService.sendMessage).toHaveBeenCalledTimes(1);
 
-    const sentMessage = (rabbitmqService.sendMessage as jest.Mock).mock.calls[0][0];
-    expect(sentMessage).toHaveProperty('from', 'LiveChatService');
-    expect(sentMessage).toHaveProperty('payload', message);
-    expect(sentMessage).toHaveProperty('timestamp');
-    expect(typeof sentMessage.timestamp).toBe('number');
+    const firstCall = mockRabbitmqService.sendMessage.mock.calls[0] as [
+      SentMessage,
+    ];
+    const sentMessage = firstCall?.[0];
+    expect(sentMessage).toBeDefined();
+    expect(sentMessage?.roomId).toBe('room-123');
+    expect(sentMessage?.authorId).toBe('author-1');
+    expect(sentMessage?.state).toBe('created');
+    expect(sentMessage?.content).toEqual({
+      type: 'text',
+      value: 'Hello World',
+    });
+    expect(typeof sentMessage?.createdAt).toBe('number');
 
-    expect(mockClient.emit).toHaveBeenCalledWith('response', { status: 'queued' });
+    expect(emitMock).toHaveBeenCalledWith('response', {
+      status: 'queued',
+    });
   });
 });
