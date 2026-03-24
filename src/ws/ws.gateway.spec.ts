@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsGateway } from './ws.gateway';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
-import type { Socket } from 'node:net';
+import type { Socket } from 'socket.io';
 
 type SentMessage = {
   createdAt: number;
@@ -71,9 +71,14 @@ describe('WsGateway', () => {
       value: 'Hello World',
     });
     expect(typeof sentMessage?.createdAt).toBe('number');
+    expect(typeof sentMessage?.uuid).toBe('string');
+    expect(sentMessage?.uuid).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
 
     expect(emitMock).toHaveBeenCalledWith('response', {
       status: 'queued',
+      uuid: sentMessage?.uuid,
     });
   });
 });
