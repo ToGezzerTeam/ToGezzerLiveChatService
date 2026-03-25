@@ -5,23 +5,15 @@ import {
   SubscribeMessage,
   WebSocketGateway,
 } from '@nestjs/websockets';
+import { Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { Socket } from 'socket.io';
-type MessageContent = {
-  type?: string;
-  value?: string;
-};
-
-type IncomingMessagePayload = {
-  roomId?: string;
-  authorId?: string;
-  answerTo?: string;
-  state?: string;
-  content?: MessageContent;
-};
+import type { IncomingMessagePayload } from './ws.types';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class WsGateway {
+  private readonly logger = new Logger(WsGateway.name);
+
   constructor(private readonly rabbitmq: RabbitmqService) {}
 
   @SubscribeMessage('message')
@@ -33,11 +25,21 @@ export class WsGateway {
     // On ignore volontairement un éventuellement `data.uuid` envoyé par le client.
     const uuid = randomUUID();
 
-    await this.rabbitmq.sendMessage({
+    this.logger.log('Message WebSocket reçu');
+    this.logger.debug({ uuid, data }, 'Payload reçu');
+
+    const messageToSend = {
+      from: 'LiveChatService',
+      payload: data,
+      timestamp: Date.now(),
       createdAt: Date.now(),
-      ...data,
       uuid,
-    });
+    };
+
+    this.logger.log('Envoi du message vers RabbitMQ');
+    this.logger.debug({ message: messageToSend }, 'Message RabbitMQ');
+
+    await this.rabbitmq.sendMessage(messageToSend);
 
     client.emit('response', { status: 'queued', uuid });
   }

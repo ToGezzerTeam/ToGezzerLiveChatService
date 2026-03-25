@@ -4,16 +4,20 @@ import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 import type { Socket } from 'socket.io';
 
 type SentMessage = {
-  createdAt: number;
-  roomId?: string;
-  authorId?: string;
-  answerTo?: string;
-  uuid?: string;
-  state?: string;
-  content?: {
-    type?: string;
-    value?: string;
+  from: string;
+  payload: {
+    roomId?: string;
+    authorId?: string;
+    answerTo?: string;
+    state?: string;
+    content?: {
+      type?: string;
+      value?: string;
+    };
   };
+  timestamp: number;
+  createdAt: number;
+  uuid?: string;
 };
 
 describe('WsGateway', () => {
@@ -63,13 +67,15 @@ describe('WsGateway', () => {
     ];
     const sentMessage = firstCall?.[0];
     expect(sentMessage).toBeDefined();
-    expect(sentMessage?.roomId).toBe('room-123');
-    expect(sentMessage?.authorId).toBe('author-1');
-    expect(sentMessage?.state).toBe('created');
-    expect(sentMessage?.content).toEqual({
+    expect(sentMessage?.from).toBe('LiveChatService');
+    expect(sentMessage?.payload?.roomId).toBe('room-123');
+    expect(sentMessage?.payload?.authorId).toBe('author-1');
+    expect(sentMessage?.payload?.state).toBe('created');
+    expect(sentMessage?.payload?.content).toEqual({
       type: 'text',
       value: 'Hello World',
     });
+    expect(typeof sentMessage?.timestamp).toBe('number');
     expect(typeof sentMessage?.createdAt).toBe('number');
     expect(typeof sentMessage?.uuid).toBe('string');
     expect(sentMessage?.uuid).toMatch(

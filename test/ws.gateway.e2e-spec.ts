@@ -71,7 +71,9 @@ describe('WsGateway (e2e)', () => {
 
     expect(mockRabbitmqService.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        ...message,
+        from: 'LiveChatService',
+        payload: message,
+        timestamp: expect.any(Number) as unknown,
         createdAt: expect.any(Number) as unknown,
         uuid: sentUuid,
       }),
