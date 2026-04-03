@@ -54,8 +54,8 @@ describe('RabbitmqService', () => {
 
     const expectedBuffer = Buffer.from(JSON.stringify(message));
     expect(mockChannel.sendToQueue).toHaveBeenCalledWith(
-        'test-queue',
-        expectedBuffer,
+      'test-queue',
+      expectedBuffer,
     );
   });
 
