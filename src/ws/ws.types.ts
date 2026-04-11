@@ -3,10 +3,15 @@ export type MessageContent = {
   value?: string;
 };
 
-export type IncomingMessagePayload = {
-  roomId?: string;
-  authorId?: string;
+export type MessagePayload = {
+  uuid: string;
+  roomId: string;
+  authorId: string;
   answerTo?: string;
-  // state?: string;
-  content?: MessageContent;
+  state: string;
+  content: MessageContent;
+  createdAt: number;
+  updatedAt?: number;
+  deletedAt?: number;
+  deletedBy?: string;
 };

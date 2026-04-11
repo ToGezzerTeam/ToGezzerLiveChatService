@@ -4,43 +4,42 @@ import {
   MessageBody,
   SubscribeMessage,
   WebSocketGateway,
+  WebSocketServer,
 } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
-import type { Socket } from 'socket.io';
-import type { IncomingMessagePayload } from './ws.types';
+import { Logger, OnModuleInit } from '@nestjs/common';
+import type { Server, Socket } from 'socket.io';
+import type { MessagePayload } from './ws.types';
 
 @WebSocketGateway({ cors: { origin: '*' } })
-export class WsGateway {
+export class WsGateway implements OnModuleInit {
   private readonly logger = new Logger(WsGateway.name);
+
+  @WebSocketServer()
+  private server?: Server;
 
   constructor(private readonly rabbitmq: RabbitmqService) {}
 
-  @SubscribeMessage('message')
-  async handleMessage(
-    @MessageBody() data: IncomingMessagePayload,
+  onModuleInit() {
+    this.rabbitmq.registerMessageHandler((message: MessagePayload) => {
+      this.forwardRabbitMessage(message);
+    });
+  }
+
+  @SubscribeMessage('joinRoom')
+  async handleJoinRoom(
+    @MessageBody() roomId: string,
     @ConnectedSocket() client: Socket,
   ) {
-    // L'UUID est généré côté serveur à la réception du message.
-    // On ignore volontairement un éventuellement `data.uuid` envoyé par le client.
-    const uuid = randomUUID();
+    await client.join(roomId);
+    this.logger.log(`Socket ${client.id} joined room ${roomId}`);
+  }
 
-    this.logger.log('Message WebSocket reçu');
-    this.logger.debug({ uuid, data }, 'Payload reçu');
-
-    const messageToSend = {
-      from: 'LiveChatService',
-      payload: data,
-      timestamp: Date.now(),
-      createdAt: Date.now(),
-      uuid,
-    };
-
-    this.logger.log('Envoi du message vers RabbitMQ');
-    this.logger.debug({ message: messageToSend }, 'Message RabbitMQ');
-
-    await this.rabbitmq.sendMessage(messageToSend);
-
-    client.emit('response', { status: 'queued', uuid });
+  private forwardRabbitMessage(message: MessagePayload) {
+    if (!message.roomId) {
+      this.logger.warn('Message ignoré: roomId manquant');
+      return;
+    }
+    this.logger.log(`Envoi message vers room ${message.roomId}`);
+    this.server?.to(message.roomId).emit('message', message);
   }
 }
