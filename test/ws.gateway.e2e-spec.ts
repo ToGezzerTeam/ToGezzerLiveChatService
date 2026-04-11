@@ -9,9 +9,19 @@ const TEST_PORT = 3001;
 describe('WsGateway (e2e)', () => {
   let app: INestApplication;
   let clientSocket: ClientSocket;
-  const mockRabbitmqService = { sendMessage: jest.fn() };
+  let rabbitMessageHandler:
+    | ((message: unknown) => Promise<void> | void)
+    | null = null;
+  const mockRabbitmqService = {
+    registerMessageHandler: jest.fn(
+      (handler: (message: unknown) => Promise<void> | void) => {
+        rabbitMessageHandler = handler;
+      },
+    ),
+  };
 
   beforeAll(async () => {
+    rabbitMessageHandler = null;
     const moduleFixture: TestingModule = await Test.createTestingModule({
       providers: [
         WsGateway,
@@ -33,7 +43,7 @@ describe('WsGateway (e2e)', () => {
     await app.close();
   });
 
-  it('client should connect and receive response', async () => {
+  it('client should join room and receive forwarded RabbitMQ message', async () => {
     clientSocket = io(`http://localhost:${TEST_PORT}`);
     const message = {
       roomId: 'room-e2e-1',
@@ -43,40 +53,31 @@ describe('WsGateway (e2e)', () => {
     };
 
     await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout waiting for websocket message event'));
+      }, 3000);
+
       clientSocket.on('connect', () => {
-        clientSocket.emit('message', message);
+        clientSocket.emit('joinRoom', message.roomId);
+
+        // Let the join be processed before simulating RabbitMQ delivery.
+        setTimeout(() => {
+          void rabbitMessageHandler?.(message);
+        }, 50);
       });
 
-      clientSocket.on('response', (data: unknown) => {
-        const response = data as { status?: string; uuid?: string };
-        expect(response.status).toBe('queued');
-        expect(typeof response.uuid).toBe('string');
-        expect(response.uuid).toMatch(
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
-        );
+      clientSocket.on('message', (data: unknown) => {
+        clearTimeout(timeout);
+        expect(data).toEqual(message);
         resolve();
       });
 
-      clientSocket.on('connect_error', (err: unknown) =>
-        reject(err instanceof Error ? err : new Error(String(err))),
-      );
+      clientSocket.on('connect_error', (err: unknown) => {
+        clearTimeout(timeout);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      });
     });
 
-    expect(mockRabbitmqService.sendMessage).toHaveBeenCalledTimes(1);
-
-    const firstCallArgs = mockRabbitmqService.sendMessage.mock.calls[0] as [
-      { uuid?: string },
-    ];
-    const sentUuid = firstCallArgs?.[0]?.uuid;
-
-    expect(mockRabbitmqService.sendMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        from: 'LiveChatService',
-        payload: message,
-        timestamp: expect.any(Number) as unknown,
-        createdAt: expect.any(Number) as unknown,
-        uuid: sentUuid,
-      }),
-    );
+    expect(mockRabbitmqService.registerMessageHandler).toHaveBeenCalledTimes(1);
   });
 });
