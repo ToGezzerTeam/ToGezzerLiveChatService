@@ -10,6 +10,12 @@ $ npm install
 
 Create a `.env` file and use the `.env.example` as an example.
 
+RabbitMQ variables to align with your Java producer:
+- `RABBITMQ_EXCHANGE`
+- `RABBITMQ_EXCHANGE_TYPE`
+- `RABBITMQ_ROUTING_KEY`
+- `RABBITMQ_MESSAGE_QUEUE`
+
 ## Compile and run the project
 
 First, start a RabbitMQ instance with docker (must match the values in your .env) :

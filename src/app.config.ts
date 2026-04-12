@@ -8,6 +8,9 @@ export class AppConfig {
   private rabbitmqUsername: string;
   private rabbitmqPassword: string;
   private rabbitmqMessageQueue: string;
+  private rabbitmqExchange: string;
+  private rabbitmqRoutingKey: string;
+  private rabbitmqExchangeType: string;
   private port: number;
   private websocketOrigins: string | string[];
   private logLevels: LogLevel[];
@@ -35,6 +38,18 @@ export class AppConfig {
     );
     this.rabbitmqMessageQueue = this.config.getOrThrow<string>(
       'RABBITMQ_MESSAGE_QUEUE',
+    );
+    this.rabbitmqExchange = this.config.get<string>(
+      'RABBITMQ_EXCHANGE',
+      'amq.topic',
+    );
+    this.rabbitmqRoutingKey = this.config.get<string>(
+      'RABBITMQ_ROUTING_KEY',
+      'routing-message-live-chat-service',
+    );
+    this.rabbitmqExchangeType = this.config.get<string>(
+      'RABBITMQ_EXCHANGE_TYPE',
+      'direct',
     );
   }
 
@@ -83,6 +98,18 @@ export class AppConfig {
 
   getRabbitmqMessageQueue(): string {
     return this.rabbitmqMessageQueue;
+  }
+
+  getRabbitmqExchange(): string {
+    return this.rabbitmqExchange;
+  }
+
+  getRabbitmqRoutingKey(): string {
+    return this.rabbitmqRoutingKey;
+  }
+
+  getRabbitmqExchangeType(): string {
+    return this.rabbitmqExchangeType;
   }
 
   getRabbitmqUrl(): string {

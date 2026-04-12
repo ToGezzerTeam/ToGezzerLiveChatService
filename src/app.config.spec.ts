@@ -23,7 +23,7 @@ describe('AppConfig', () => {
     });
 
     mockConfigService.get.mockImplementation(
-      (key: string, defaultValue?: any) => {
+      (key: string, defaultValue?: unknown) => {
         switch (key) {
           case 'PORT':
             return 4000;
@@ -39,8 +39,14 @@ describe('AppConfig', () => {
             return 'guest';
           case 'RABBITMQ_PASSWORD':
             return 'guest';
+          case 'RABBITMQ_EXCHANGE':
+            return 'message.exchange';
+          case 'RABBITMQ_ROUTING_KEY':
+            return 'routing-message-live-chat-service';
+          case 'RABBITMQ_EXCHANGE_TYPE':
+            return 'topic';
           default:
-            return defaultValue;
+            return defaultValue as string | number | undefined;
         }
       },
     );
@@ -84,6 +90,11 @@ describe('AppConfig', () => {
     expect(appConfig.getRabbitmqUsername()).toBe('guest');
     expect(appConfig.getRabbitmqPassword()).toBe('guest');
     expect(appConfig.getRabbitmqMessageQueue()).toBe('ws_messages');
+    expect(appConfig.getRabbitmqExchange()).toBe('message.exchange');
+    expect(appConfig.getRabbitmqRoutingKey()).toBe(
+      'routing-message-live-chat-service',
+    );
+    expect(appConfig.getRabbitmqExchangeType()).toBe('topic');
   });
 
   it('should construct full RabbitMQ URL', () => {
@@ -94,9 +105,108 @@ describe('AppConfig', () => {
 
   it('should handle wildcard websocket origin', () => {
     mockConfigService.get.mockImplementation(
-      (key: string, defaultValue?: any) => {
+      (key: string, defaultValue?: unknown) => {
         if (key === 'WS_CORS_ORIGIN') return '*';
-        return defaultValue;
+        return defaultValue as string | number | undefined;
+      },
+    );
+    appConfig.init();
+    expect(appConfig.getWebSocketCorsOrigins()).toBe('*');
+  });
+
+  it('should return default port when not configured', async () => {
+    const newMockConfigService = {
+      getOrThrow: jest.fn(() => 'ws_messages'),
+      get: jest.fn((key: string, defaultValue?: unknown) => defaultValue),
+    };
+
+    const mockModule = Test.createTestingModule({
+      providers: [
+        AppConfig,
+        { provide: ConfigService, useValue: newMockConfigService },
+      ],
+    });
+
+    await mockModule.compile().then((module) => {
+      const config = module.get(AppConfig);
+      config.init();
+      expect(config.getPort()).toBe(3000);
+    });
+  });
+
+  it('should filter out invalid log levels', () => {
+    mockConfigService.get.mockImplementation(
+      (key: string, defaultValue?: unknown) => {
+        if (key === 'LOG_LEVELS') return 'debug,invalid-level,log,error';
+        return defaultValue as string | number | undefined;
+      },
+    );
+    appConfig.init();
+    expect(appConfig.getLogLevels()).toEqual(['debug', 'log', 'error']);
+  });
+
+  it('should parse single origin without comma', () => {
+    mockConfigService.get.mockImplementation(
+      (key: string, defaultValue?: unknown) => {
+        if (key === 'WS_CORS_ORIGIN') return 'http://localhost:3000';
+        return defaultValue as string | number | undefined;
+      },
+    );
+    appConfig.init();
+    expect(appConfig.getWebSocketCorsOrigins()).toEqual([
+      'http://localhost:3000',
+    ]);
+  });
+
+  it('should handle empty string origin as fallback', () => {
+    mockConfigService.get.mockImplementation(
+      (key: string, defaultValue?: unknown) => {
+        if (key === 'WS_CORS_ORIGIN') return '';
+        return defaultValue as string | number | undefined;
+      },
+    );
+    appConfig.init();
+    expect(appConfig.getWebSocketCorsOrigins()).toBe('*');
+  });
+
+  it('should parse multiple log levels correctly', () => {
+    mockConfigService.get.mockImplementation(
+      (key: string, defaultValue?: unknown) => {
+        if (key === 'LOG_LEVELS') return 'verbose,debug,log,warn,error,fatal';
+        return defaultValue as string | number | undefined;
+      },
+    );
+    appConfig.init();
+    expect(appConfig.getLogLevels()).toEqual([
+      'verbose',
+      'debug',
+      'log',
+      'warn',
+      'error',
+      'fatal',
+    ]);
+  });
+
+  it('should parse origins with spaces', () => {
+    mockConfigService.get.mockImplementation(
+      (key: string, defaultValue?: unknown) => {
+        if (key === 'WS_CORS_ORIGIN')
+          return '  http://localhost:3000  ,  http://example.com  ';
+        return defaultValue as string | number | undefined;
+      },
+    );
+    appConfig.init();
+    expect(appConfig.getWebSocketCorsOrigins()).toEqual([
+      'http://localhost:3000',
+      'http://example.com',
+    ]);
+  });
+
+  it('should default to wildcard when WS_CORS_ORIGIN is null', () => {
+    mockConfigService.get.mockImplementation(
+      (key: string, defaultValue?: unknown) => {
+        if (key === 'WS_CORS_ORIGIN') return null;
+        return defaultValue as string | number | undefined;
       },
     );
     appConfig.init();
