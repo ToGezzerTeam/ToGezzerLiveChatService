@@ -15,3 +15,12 @@ export type MessagePayload = {
   deletedAt?: number;
   deletedBy?: string;
 };
+
+export interface UserMediaState {
+  socketId: string;
+  userId: string;
+  roomId: string;
+  isMicMuted: boolean;
+  isSongMuted: boolean;
+  transportId?: string;
+}
