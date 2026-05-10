@@ -1,10 +1,15 @@
 // src/mediasoup/mediasoup.service.ts
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createWorker, types } from 'mediasoup';
 
 @Injectable()
-export class MediasoupService implements OnModuleDestroy {
+export class MediasoupService implements OnModuleDestroy, OnModuleInit {
   private logger = new Logger('MediasoupService');
   private worker: types.Worker;
   private routers: Map<string, types.Router> = new Map();
@@ -12,6 +17,10 @@ export class MediasoupService implements OnModuleDestroy {
   private consumers: Map<string, types.Consumer> = new Map();
 
   constructor(private configService: ConfigService) {}
+
+  async onModuleInit() {
+    await this.initialize();
+  }
 
   async initialize() {
     try {
