@@ -50,7 +50,7 @@ export class VoiceChatGateway
     this.userConnectTimers.set(socket.id, timer);
   }
 
-  async handleDisconnect(@ConnectedSocket() socket: Socket) {
+  handleDisconnect(@ConnectedSocket() socket: Socket) {
     const timer = this.userConnectTimers.get(socket.id);
     if (timer) {
       clearTimeout(timer);
@@ -69,7 +69,7 @@ export class VoiceChatGateway
         });
 
         if (roomUsers.size === 0) {
-          await this.mediasoupService.closeRouter(roomId);
+          this.mediasoupService.closeRouter(roomId);
           this.roomUsers.delete(roomId);
         }
       }
@@ -201,7 +201,7 @@ export class VoiceChatGateway
       if (roomUsers) {
         roomUsers.delete(socket.id);
         if (roomUsers.size === 0) {
-          await this.mediasoupService.closeRouter(roomId);
+          this.mediasoupService.closeRouter(roomId);
           this.roomUsers.delete(roomId);
         }
       }

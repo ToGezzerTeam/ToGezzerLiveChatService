@@ -1,16 +1,15 @@
 // src/mediasoup/mediasoup.service.ts
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as mediasoup from 'mediasoup';
-import { Worker, Router, Producer, Consumer } from 'mediasoup/node/lib/types'
+import { createWorker, types } from 'mediasoup';
 
 @Injectable()
 export class MediasoupService implements OnModuleDestroy {
   private logger = new Logger('MediasoupService');
-  private worker: Worker;
-  private routers: Map<string, Router> = new Map();
-  private producers: Map<string, Producer> = new Map();
-  private consumers: Map<string, Consumer> = new Map();
+  private worker: types.Worker;
+  private routers: Map<string, types.Router> = new Map();
+  private producers: Map<string, types.Producer> = new Map();
+  private consumers: Map<string, types.Consumer> = new Map();
 
   constructor(private configService: ConfigService) {}
 
@@ -25,7 +24,7 @@ export class MediasoupService implements OnModuleDestroy {
         57000,
       );
 
-      this.worker = await mediasoup.createWorker({
+      this.worker = await createWorker({
         logLevel: 'warn',
         logTags: ['info', 'ice', 'dtls', 'rtp', 'srtp', 'rtcp'],
         rtcMinPort: minPort,
@@ -34,7 +33,9 @@ export class MediasoupService implements OnModuleDestroy {
 
       this.worker.on('died', () => {
         this.logger.error('MediaSoup worker died, restarting...');
-        setTimeout(() => this.initialize(), 2000);
+        setTimeout(() => {
+          void this.initialize();
+        }, 2000);
       });
 
       this.logger.log('MediaSoup worker initialized');
@@ -104,8 +105,9 @@ export class MediasoupService implements OnModuleDestroy {
       enableTcp: true,
       preferUdp: true,
       initialAvailableOutgoingBitrate: 1000000,
-      maxIncomingBitrate: 1500000,
     });
+
+    await transport.setMaxIncomingBitrate(1500000);
 
     return {
       id: transport.id,
@@ -116,7 +118,7 @@ export class MediasoupService implements OnModuleDestroy {
     };
   }
 
-  async closeRouter(roomId: string) {
+  closeRouter(roomId: string) {
     const router = this.routers.get(roomId);
     if (router) {
       router.close();
@@ -125,14 +127,14 @@ export class MediasoupService implements OnModuleDestroy {
     }
   }
 
-  async onModuleDestroy() {
+  onModuleDestroy() {
     if (this.worker) {
       this.worker.close();
       this.logger.log('MediaSoup worker closed');
     }
   }
 
-  storeProducer(id: string, producer: Producer) {
+  storeProducer(id: string, producer: types.Producer) {
     this.producers.set(id, producer);
   }
 
@@ -140,7 +142,7 @@ export class MediasoupService implements OnModuleDestroy {
     return this.producers.get(id);
   }
 
-  storeConsumer(id: string, consumer: Consumer) {
+  storeConsumer(id: string, consumer: types.Consumer) {
     this.consumers.set(id, consumer);
   }
 
