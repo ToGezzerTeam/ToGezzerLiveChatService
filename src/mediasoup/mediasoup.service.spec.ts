@@ -135,4 +135,53 @@ describe('MediasoupService', () => {
     expect(service.getProducer('p1')).toBe('producer');
     expect(service.getConsumer('c1')).toBe('consumer');
   });
+
+  it('appelle initialize au onModuleInit', async () => {
+    const initSpy = jest.spyOn(service, 'initialize').mockResolvedValue();
+
+    await service.onModuleInit();
+
+    expect(initSpy).toHaveBeenCalled();
+  });
+
+  it('relance initialize si le worker meurt', async () => {
+    jest.useFakeTimers();
+    const workerHandlers: Record<string, () => void> = {};
+    mockWorker.on.mockImplementation((event: string, handler: () => void) => {
+      workerHandlers[event] = handler;
+    });
+    (createWorker as jest.Mock).mockResolvedValue(mockWorker);
+
+    await service.initialize();
+
+    workerHandlers.died();
+    jest.advanceTimersByTime(2000);
+
+    expect(createWorker).toHaveBeenCalledTimes(2);
+    jest.useRealTimers();
+  });
+
+  it('relance une erreur si initialize echoue', async () => {
+    (createWorker as jest.Mock).mockRejectedValue(new Error('fail'));
+
+    await expect(service.initialize()).rejects.toThrow('fail');
+  });
+
+  it('ne ferme rien si aucun router', () => {
+    service.closeRouter('room-missing');
+
+    expect(service.getRouter('room-missing')).toBeUndefined();
+  });
+
+  it('ne plante pas si onModuleDestroy sans worker', () => {
+    expect(() => service.onModuleDestroy()).not.toThrow();
+  });
+
+  it('ferme le worker au onModuleDestroy', () => {
+    (service as unknown as { worker: typeof mockWorker }).worker = mockWorker;
+
+    service.onModuleDestroy();
+
+    expect(mockWorker.close).toHaveBeenCalled();
+  });
 });
