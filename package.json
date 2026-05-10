@@ -18,7 +18,8 @@
     "test:cov": "jest --coverage",
     "test:cov:changed": "jest --coverage --changedSince=origin/main",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "smoke:voice": "ts-node scripts/voice-chat-smoke.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -29,6 +30,7 @@
     "@nestjs/websockets": "^11.1.13",
     "amqp-connection-manager": "^5.0.0",
     "amqplib": "^0.10.9",
+    "mediasoup": "^3.19.22",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
