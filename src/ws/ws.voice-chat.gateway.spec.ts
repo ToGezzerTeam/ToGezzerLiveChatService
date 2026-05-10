@@ -174,7 +174,7 @@ describe('VoiceChatGateway', () => {
       },
     );
 
-    gateway.handleToggleCamera(socket, { isMuted: true });
+    gateway.handleToggleSong(socket, { isMuted: true });
 
     expect(emitMock).toHaveBeenCalledWith('userMediaStateChanged', {
       socketId: 'sock-1',
@@ -265,7 +265,7 @@ describe('VoiceChatGateway', () => {
       to: jest.fn().mockReturnValue({ emit: emitMock }),
     };
 
-    gateway.handleToggleCamera(socket, { isMuted: true });
+    gateway.handleToggleSong(socket, { isMuted: true });
 
     expect(emitMock).not.toHaveBeenCalled();
   });

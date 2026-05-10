@@ -169,7 +169,7 @@ export class VoiceChatGateway
   }
 
   @SubscribeMessage('toggleSong')
-  handleToggleCamera(
+  handleToggleSong(
     @ConnectedSocket() socket: Socket,
     @MessageBody() data: { isMuted: boolean },
   ) {
