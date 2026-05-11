@@ -22,5 +22,30 @@ export interface UserMediaState {
   roomId: string;
   isMicMuted: boolean;
   isSongMuted: boolean;
-  transportId?: string;
+  producerTransportId?: string;
+  consumerTransportId?: string;
+  producers?: Map<'audio' | 'video', string>; // kind -> producerId
+  consumers?: Map<string, string>; // producerId -> consumerId
+}
+
+export interface WebRtcTransportInfo {
+  id: string;
+  iceParameters: any;
+  iceCandidates: any;
+  dtlsParameters: any;
+  sctpParameters?: any;
+}
+
+export interface ProducerInfo {
+  id: string;
+  kind: 'audio' | 'video';
+  rtpParameters: any;
+}
+
+export interface ConsumerInfo {
+  id: string;
+  producerId: string;
+  kind: 'audio' | 'video';
+  rtpParameters: any;
+  type: string;
 }
