@@ -3,7 +3,7 @@ name: Deploy LiveChat Service
 on:
   push:
     branches:
-      - main
+      - feat/dockerize
 
 jobs:
   build:
