@@ -1,0 +1,25 @@
+name: Deploy LiveChat Service
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: UPPER to lower
+        run: |
+          echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Login
+        run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GHCR_USER }} --password-stdin
+
+      - name: Build and push livechat service
+        run: |
+          docker build -f ./Dockerfile -t ghcr.io/${{ env.REPO_LOWER }}/livechat-service:latest .
+          docker push ghcr.io/${{ env.REPO_LOWER }}/livechat-service:latest
