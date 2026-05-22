@@ -1,10 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { WsGateway } from './ws/ws.gateway';
-import { VoiceChatGateway } from './ws/ws.voice-chat.gateway';
 import { RabbitmqService } from './rabbitmq/rabbitmq.service';
-import { MediasoupService } from './mediasoup/mediasoup.service';
-import { AppConfig } from './app.config';
+import {ConfigModule} from "@nestjs/config";
+import {AppConfig} from "./app.config";
 
 @Module({
   imports: [
@@ -12,12 +10,6 @@ import { AppConfig } from './app.config';
       isGlobal: true,
     }),
   ],
-  providers: [
-    AppConfig,
-    WsGateway,
-    VoiceChatGateway,
-    RabbitmqService,
-    MediasoupService,
-  ],
+  providers: [AppConfig, WsGateway, RabbitmqService],
 })
 export class AppModule {}

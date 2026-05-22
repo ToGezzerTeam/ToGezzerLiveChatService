@@ -1,118 +1,98 @@
-import { Injectable, LOG_LEVELS, LogLevel } from '@nestjs/common';
+import {Injectable, LOG_LEVELS, LogLevel} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AppConfig {
-  private rabbitmqHost: string;
-  private rabbitmqPort: number;
-  private rabbitmqUsername: string;
-  private rabbitmqPassword: string;
-  private rabbitmqMessageQueue: string;
-  private rabbitmqExchange: string;
-  private rabbitmqRoutingKey: string;
-  private rabbitmqExchangeType: string;
-  private port: number;
-  private websocketOrigins: string | string[];
-  private logLevels: LogLevel[];
+    private rabbitmqHost: string;
+    private rabbitmqPort: number;
+    private rabbitmqUsername: string;
+    private rabbitmqPassword: string;
+    private rabbitmqMessageQueue: string;
+    private port: number;
+    private websocketOrigins: string | string[];
+    private logLevels: LogLevel[]
+    private jwtSecret: string;
+    private jwtIssuer?: string;
+    private jwtAudience?: string;
 
-  constructor(private readonly config: ConfigService) {}
+    constructor(private readonly config: ConfigService) {}
 
-  init() {
-    this.port = this.config.get<number>('PORT', 3000);
-    this.logLevels = this.parseLogLevels(
-      this.config.get<string>('LOG_LEVELS', 'log,warn,error,fatal'),
-    );
-    this.websocketOrigins = this.parseOrigins(
-      this.config.get<string>('WS_CORS_ORIGIN', '*'),
-    );
+    init() {
+        this.port = this.config.get<number>('PORT', 3000);
+        this.logLevels = this.parseLogLevels(this.config.get<string>("LOG_LEVELS", "log,warn,error,fatal"));
+        this.websocketOrigins = this.parseOrigins(this.config.get<string>('WS_CORS_ORIGIN', '*'));
 
-    this.rabbitmqHost = this.config.get<string>('RABBITMQ_HOST', 'localhost');
-    this.rabbitmqPort = this.config.get<number>('RABBITMQ_PORT', 5672);
-    this.rabbitmqUsername = this.config.get<string>(
-      'RABBITMQ_USERNAME',
-      'guest',
-    );
-    this.rabbitmqPassword = this.config.get<string>(
-      'RABBITMQ_PASSWORD',
-      'guest',
-    );
-    this.rabbitmqMessageQueue = this.config.getOrThrow<string>(
-      'RABBITMQ_MESSAGE_QUEUE',
-    );
-    this.rabbitmqExchange = this.config.get<string>(
-      'RABBITMQ_EXCHANGE',
-      'amq.topic',
-    );
-    this.rabbitmqRoutingKey = this.config.get<string>(
-      'RABBITMQ_ROUTING_KEY',
-      'routing-message-live-chat-service',
-    );
-    this.rabbitmqExchangeType = this.config.get<string>(
-      'RABBITMQ_EXCHANGE_TYPE',
-      'direct',
-    );
-  }
+        this.rabbitmqHost = this.config.get<string>('RABBITMQ_HOST', 'localhost');
+        this.rabbitmqPort = this.config.get<number>('RABBITMQ_PORT', 5672);
+        this.rabbitmqUsername = this.config.get<string>('RABBITMQ_USERNAME', 'guest');
+        this.rabbitmqPassword = this.config.get<string>('RABBITMQ_PASSWORD', 'guest');
+        this.rabbitmqMessageQueue = this.config.getOrThrow<string>('RABBITMQ_MESSAGE_QUEUE');
 
-  private parseOrigins(value: string): string | string[] {
-    if (!value || value === '*') return '*';
-    return this.parseStringArray(value);
-  }
+        this.jwtSecret = this.config.get<string>('JWT_SECRET', '');
+        this.jwtIssuer = this.config.get<string>('JWT_ISSUER');
+        this.jwtAudience = this.config.get<string>('JWT_AUDIENCE');
+    }
 
-  private parseLogLevels(loglevels: string): LogLevel[] {
-    return this.parseStringArray(loglevels)
-      .map((item) => LOG_LEVELS.find((level) => item === level) ?? null)
-      .filter((level) => !!level);
-  }
+    private parseOrigins(value: string): string | string[] {
+        if (!value || value === '*') return '*';
+        return this.parseStringArray(value);
+    }
 
-  private parseStringArray(value: string): string[] {
-    return value.split(',').map((item) => item.trim());
-  }
+    private parseLogLevels(loglevels: string): LogLevel[] {
+        return this.parseStringArray(loglevels)
+            .map(item => LOG_LEVELS.find(level => item === level) ?? null)
+            .filter(level => !!level);
+    }
 
-  getPort(): number {
-    return this.port;
-  }
+    private parseStringArray(value: string) : string[] {
+        return value.split(',').map(item => item.trim());
+    }
 
-  getLogLevels(): LogLevel[] {
-    return this.logLevels;
-  }
+    getPort(): number {
+        return this.port;
+    }
 
-  getWebSocketCorsOrigins(): string | string[] {
-    return this.websocketOrigins;
-  }
+    getLogLevels(): LogLevel[] {
+        return this.logLevels;
+    }
 
-  getRabbitmqHost(): string {
-    return this.rabbitmqHost;
-  }
+    getWebSocketCorsOrigins(): string | string[] {
+        return this.websocketOrigins;
+    }
 
-  getRabbitmqPort(): number {
-    return this.rabbitmqPort;
-  }
+    getRabbitmqHost(): string {
+        return this.rabbitmqHost;
+    }
 
-  getRabbitmqUsername(): string {
-    return this.rabbitmqUsername;
-  }
+    getRabbitmqPort(): number {
+        return this.rabbitmqPort;
+    }
 
-  getRabbitmqPassword(): string {
-    return this.rabbitmqPassword;
-  }
+    getRabbitmqUsername(): string {
+        return this.rabbitmqUsername;
+    }
 
-  getRabbitmqMessageQueue(): string {
-    return this.rabbitmqMessageQueue;
-  }
+    getRabbitmqPassword(): string {
+        return this.rabbitmqPassword;
+    }
 
-  getRabbitmqExchange(): string {
-    return this.rabbitmqExchange;
-  }
+    getRabbitmqMessageQueue(): string {
+        return this.rabbitmqMessageQueue;
+    }
 
-  getRabbitmqRoutingKey(): string {
-    return this.rabbitmqRoutingKey;
-  }
+    getRabbitmqUrl(): string {
+        return `amqp://${this.rabbitmqUsername}:${this.rabbitmqPassword}@${this.rabbitmqHost}:${this.rabbitmqPort}`;
+    }
 
-  getRabbitmqExchangeType(): string {
-    return this.rabbitmqExchangeType;
-  }
+    getJwtSecret(): string {
+        return this.jwtSecret;
+    }
 
-  getRabbitmqUrl(): string {
-    return `amqp://${this.rabbitmqUsername}:${this.rabbitmqPassword}@${this.rabbitmqHost}:${this.rabbitmqPort}`;
-  }
+    getJwtIssuer(): string | undefined {
+        return this.jwtIssuer;
+    }
+
+    getJwtAudience(): string | undefined {
+        return this.jwtAudience;
+    }
 }
