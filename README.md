@@ -10,11 +10,33 @@ $ npm install
 
 Create a `.env` file and use the `.env.example` as an example.
 
-RabbitMQ variables to align with your Java producer:
-- `RABBITMQ_EXCHANGE`
-- `RABBITMQ_EXCHANGE_TYPE`
-- `RABBITMQ_ROUTING_KEY`
-- `RABBITMQ_MESSAGE_QUEUE`
+## WebSocket authentication
+
+This service expects a JWT on WebSocket messages. Provide it either:
+- in the Socket.IO auth payload: `auth: { token: "<jwt>" }`
+- or in the `Authorization: Bearer <jwt>` header
+
+The JWT secret and optional issuer/audience are configured via:
+- `JWT_SECRET`
+- `JWT_ISSUER`
+- `JWT_AUDIENCE`
+
+Example Socket.IO client:
+
+```ts
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:3000', {
+  auth: {
+	token: '<jwt>',
+  },
+});
+
+socket.emit('message', { text: 'Hello' });
+socket.on('response', (data) => {
+  console.log('response', data);
+});
+```
 
 ## Compile and run the project
 
