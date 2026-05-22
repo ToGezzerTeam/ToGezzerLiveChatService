@@ -72,6 +72,9 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "moduleNameMapper": {
+      "^\\.\\./auth/ws-jwt\\.guard$": "<rootDir>/auth/ws-jwt.guard.ts"
+    },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],

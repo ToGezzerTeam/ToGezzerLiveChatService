@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsGateway } from './ws.gateway';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
+import { AppConfig } from '../app.config';
 
 describe('WsGateway', () => {
   let gateway: WsGateway;
@@ -14,6 +15,12 @@ describe('WsGateway', () => {
     sendMessage: jest.fn(),
   };
 
+  const mockAppConfig = {
+    getJwtSecret: jest.fn(),
+    getJwtIssuer: jest.fn(),
+    getJwtAudience: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -21,6 +28,7 @@ describe('WsGateway', () => {
       providers: [
         WsGateway,
         { provide: RabbitmqService, useValue: mockRabbitmqService },
+        { provide: AppConfig, useValue: mockAppConfig },
       ],
     }).compile();
 
