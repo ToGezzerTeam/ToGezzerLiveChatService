@@ -11,6 +11,9 @@ export class AppConfig {
   private rabbitmqExchange: string;
   private rabbitmqRoutingKey: string;
   private rabbitmqExchangeType: string;
+  private jwtSecret: string;
+  private jwtIssuer: string | undefined;
+  private jwtAudience: string | undefined;
   private port: number;
   private websocketOrigins: string | string[];
   private logLevels: LogLevel[];
@@ -25,6 +28,9 @@ export class AppConfig {
     this.websocketOrigins = this.parseOrigins(
       this.config.get<string>('WS_CORS_ORIGIN', '*'),
     );
+    this.jwtSecret = this.config.getOrThrow<string>('JWT_SECRET');
+    this.jwtIssuer = this.config.get<string>('JWT_ISSUER') ?? undefined;
+    this.jwtAudience = this.config.get<string>('JWT_AUDIENCE') ?? undefined;
 
     this.rabbitmqHost = this.config.get<string>('RABBITMQ_HOST', 'localhost');
     this.rabbitmqPort = this.config.get<number>('RABBITMQ_PORT', 5672);
@@ -110,6 +116,18 @@ export class AppConfig {
 
   getRabbitmqExchangeType(): string {
     return this.rabbitmqExchangeType;
+  }
+
+  getJwtSecret(): string {
+    return this.jwtSecret;
+  }
+
+  getJwtIssuer(): string | undefined {
+    return this.jwtIssuer;
+  }
+
+  getJwtAudience(): string | undefined {
+    return this.jwtAudience;
   }
 
   getRabbitmqUrl(): string {

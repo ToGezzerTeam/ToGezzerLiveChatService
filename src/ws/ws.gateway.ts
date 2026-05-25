@@ -6,18 +6,22 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Logger, OnModuleInit } from '@nestjs/common';
+import { Logger, OnModuleInit, UseGuards } from '@nestjs/common';
 import type { Server, Socket } from 'socket.io';
 import type { MessagePayload } from './ws.types';
+import { WsJwtAuthGuard } from '../auth/ws-jwt.guard';
 
 @WebSocketGateway({ cors: { origin: '*' } })
+@UseGuards(WsJwtAuthGuard)
 export class WsGateway implements OnModuleInit {
   private readonly logger = new Logger(WsGateway.name);
 
   @WebSocketServer()
   private server?: Server;
 
-  constructor(private readonly rabbitmq: RabbitmqService) {}
+  constructor(
+    private readonly rabbitmq: RabbitmqService,
+  ) {}
 
   onModuleInit() {
     this.rabbitmq.registerMessageHandler((message: MessagePayload) => {

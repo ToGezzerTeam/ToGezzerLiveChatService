@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import type { Socket } from 'socket.io';
 import { VoiceChatGateway } from './ws.voice-chat.gateway';
 import { MediasoupService } from '../mediasoup/mediasoup.service';
+import { WsJwtAuthService } from '../auth/ws-jwt-auth.service';
 
 const createMockSocket = (id: string) => {
   const roomEmit = jest.fn();
@@ -27,6 +28,9 @@ const getSocketMocks = (socket: Socket) =>
 describe('VoiceChatGateway', () => {
   let gateway: VoiceChatGateway;
   let mediasoupService: { createRouter: jest.Mock; closeRouter: jest.Mock; cleanupSocketResources?: jest.Mock };
+  const mockWsJwtAuthService = {
+    authenticateSocket: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -37,10 +41,10 @@ describe('VoiceChatGateway', () => {
       closeRouter: jest.fn(),
       cleanupSocketResources: jest.fn(),
     };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VoiceChatGateway,
+        { provide: WsJwtAuthService, useValue: mockWsJwtAuthService },
         { provide: MediasoupService, useValue: mediasoupService },
       ],
     }).compile();
@@ -77,7 +81,7 @@ describe('VoiceChatGateway', () => {
 
   it('rejoint une room et notifie les autres utilisateurs', async () => {
     const socket = createMockSocket('sock-1');
-    const { join, to, emit } = getSocketMocks(socket);
+    const { join, to } = getSocketMocks(socket);
 
     const ret = await gateway.handleJoinVoiceRoom(socket, {
       roomId: 'room-1',
@@ -326,6 +330,7 @@ describe('VoiceChatGateway', () => {
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           VoiceChatGateway,
+          { provide: WsJwtAuthService, useValue: mockWsJwtAuthService },
           { provide: MediasoupService, useValue: mediasoupService },
         ],
       }).compile();
@@ -495,6 +500,7 @@ describe('VoiceChatGateway', () => {
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           VoiceChatGateway,
+          { provide: WsJwtAuthService, useValue: mockWsJwtAuthService },
           { provide: MediasoupService, useValue: mediasoupService },
         ],
       }).compile();
@@ -553,7 +559,7 @@ describe('VoiceChatGateway', () => {
 
       gateway.handleDisconnect(socket);
 
-      expect((mediasoupService.closeRouter as jest.Mock).toHaveBeenCalled);
+      expect(mediasoupService.closeRouter as jest.Mock).toHaveBeenCalled();
       expect(emitMock).toHaveBeenCalledWith('userLeft', {
         socketId: 'sock-1',
         userId: 'user-1',
@@ -593,6 +599,7 @@ describe('VoiceChatGateway', () => {
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           VoiceChatGateway,
+          { provide: WsJwtAuthService, useValue: mockWsJwtAuthService },
           { provide: MediasoupService, useValue: mediasoupService },
         ],
       }).compile();

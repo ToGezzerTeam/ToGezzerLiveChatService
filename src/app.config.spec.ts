@@ -15,6 +15,8 @@ describe('AppConfig', () => {
 
     mockConfigService.getOrThrow.mockImplementation((key: string) => {
       switch (key) {
+        case 'JWT_SECRET':
+          return 'test-secret';
         case 'RABBITMQ_MESSAGE_QUEUE':
           return 'ws_messages';
         default:
@@ -45,6 +47,10 @@ describe('AppConfig', () => {
             return 'routing-message-live-chat-service';
           case 'RABBITMQ_EXCHANGE_TYPE':
             return 'topic';
+          case 'JWT_ISSUER':
+            return 'issuer-1';
+          case 'JWT_AUDIENCE':
+            return 'aud-1';
           default:
             return defaultValue as string | number | undefined;
         }
@@ -95,6 +101,12 @@ describe('AppConfig', () => {
       'routing-message-live-chat-service',
     );
     expect(appConfig.getRabbitmqExchangeType()).toBe('topic');
+  });
+
+  it('should return JWT fields', () => {
+    expect(appConfig.getJwtSecret()).toBe('test-secret');
+    expect(appConfig.getJwtIssuer()).toBe('issuer-1');
+    expect(appConfig.getJwtAudience()).toBe('aud-1');
   });
 
   it('should construct full RabbitMQ URL', () => {
