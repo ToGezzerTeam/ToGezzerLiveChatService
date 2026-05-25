@@ -4,6 +4,7 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
@@ -12,6 +13,7 @@ import { Logger, UseFilters } from '@nestjs/common';
 import { MediasoupService } from '../mediasoup/mediasoup.service';
 import { WsExceptionFilter } from '../exception/ws-exception.filter';
 import { UserMediaState } from './ws.types';
+import { WsJwtAuthService } from './ws-jwt-auth.service';
 
 @UseFilters(WsExceptionFilter)
 @WebSocketGateway({
@@ -24,7 +26,7 @@ import { UserMediaState } from './ws.types';
   pingTimeout: 60000,
 })
 export class VoiceChatGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
 {
   @WebSocketServer() server: Server;
 
@@ -33,7 +35,24 @@ export class VoiceChatGateway
   private roomUsers: Map<string, Set<string>> = new Map();
   private userConnectTimers: Map<string, NodeJS.Timeout> = new Map();
 
-  constructor(private mediasoupService: MediasoupService) {}
+  constructor(
+    private mediasoupService: MediasoupService,
+    private readonly wsJwtAuth: WsJwtAuthService,
+  ) {}
+
+  afterInit(server: Server) {
+    server.use((socket, next) => {
+      try {
+        this.wsJwtAuth.authenticateSocket(socket);
+        next();
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unauthorized connection';
+        this.logger.warn(`Socket ${socket.id} rejected: ${message}`);
+        next(new Error(message));
+      }
+    });
+  }
 
   handleConnection(@ConnectedSocket() socket: Socket) {
     this.logger.log(`Client connected: ${socket.id}`);
@@ -83,8 +102,8 @@ export class VoiceChatGateway
 
   @SubscribeMessage('joinVoiceRoom')
   async handleJoinVoiceRoom(
-    @ConnectedSocket() socket: Socket,
-    @MessageBody() data: { roomId: string; userId: string },
+      @ConnectedSocket() socket: Socket,
+      @MessageBody() data: { roomId: string; userId: string },
   ) {
     try {
       const { roomId, userId } = data;
@@ -104,18 +123,18 @@ export class VoiceChatGateway
 
       // Obtenir les utilisateurs existants AVANT d'ajouter le nouvel utilisateur
       const existingUsers = Array.from(this.roomUsers.get(roomId) || [])
-        .map((id) => {
-          const state = this.userStates.get(id);
-          return state
-            ? {
-                socketId: id,
-                userId: state.userId,
-                isMicMuted: state.isMicMuted,
-                isSongMuted: state.isSongMuted,
-              }
-            : null;
-        })
-        .filter(Boolean);
+          .map((id) => {
+            const state = this.userStates.get(id);
+            return state
+                ? {
+                  socketId: id,
+                  userId: state.userId,
+                  isMicMuted: state.isMicMuted,
+                  isSongMuted: state.isSongMuted,
+                }
+                : null;
+          })
+          .filter(Boolean);
 
       // Créer et stocker l'état de l'utilisateur actuel
       const userState: UserMediaState = {
@@ -148,7 +167,7 @@ export class VoiceChatGateway
       });
 
       this.logger.log(
-        `[${socket.id}] User ${userId} joined room ${roomId}. Existing users: ${existingUsers.length}`,
+          `[${socket.id}] User ${userId} joined room ${roomId}. Existing users: ${existingUsers.length}`,
       );
 
       // Retourner à l'utilisateur les utilisateurs existants + lui-même
@@ -170,8 +189,8 @@ export class VoiceChatGateway
 
   @SubscribeMessage('createProducerTransport')
   async handleCreateProducerTransport(
-    @ConnectedSocket() socket: Socket,
-    @MessageBody() data: { roomId: string },
+      @ConnectedSocket() socket: Socket,
+      @MessageBody() data: { roomId: string },
   ) {
     try {
       const { roomId } = data;
@@ -184,14 +203,14 @@ export class VoiceChatGateway
 
       // Créer et stocker le transport producteur
       const transportInfo = await this.mediasoupService.createProducerTransport(
-        roomId,
-        socket.id,
+          roomId,
+          socket.id,
       );
 
       userState.producerTransportId = transportInfo.id;
 
       this.logger.log(
-        `[${socket.id}] Producer transport created for user ${userState.userId}: ${transportInfo.id}`,
+          `[${socket.id}] Producer transport created for user ${userState.userId}: ${transportInfo.id}`,
       );
 
       return {
@@ -200,8 +219,8 @@ export class VoiceChatGateway
       };
     } catch (error) {
       this.logger.error(
-        `[${socket.id}] Error creating producer transport`,
-        error,
+          `[${socket.id}] Error creating producer transport`,
+          error,
       );
       return { success: false, message: 'Failed to create producer transport' };
     }
@@ -212,8 +231,8 @@ export class VoiceChatGateway
    */
   @SubscribeMessage('createConsumerTransport')
   async handleCreateConsumerTransport(
-    @ConnectedSocket() socket: Socket,
-    @MessageBody() data: { roomId: string },
+      @ConnectedSocket() socket: Socket,
+      @MessageBody() data: { roomId: string },
   ) {
     try {
       const { roomId } = data;
@@ -226,14 +245,14 @@ export class VoiceChatGateway
 
       // Créer et stocker le transport consommateur
       const transportInfo = await this.mediasoupService.createConsumerTransport(
-        roomId,
-        socket.id,
+          roomId,
+          socket.id,
       );
 
       userState.consumerTransportId = transportInfo.id;
 
       this.logger.log(
-        `[${socket.id}] Consumer transport created for user ${userState.userId}: ${transportInfo.id}`,
+          `[${socket.id}] Consumer transport created for user ${userState.userId}: ${transportInfo.id}`,
       );
 
       return {
@@ -242,8 +261,8 @@ export class VoiceChatGateway
       };
     } catch (error) {
       this.logger.error(
-        `[${socket.id}] Error creating consumer transport`,
-        error,
+          `[${socket.id}] Error creating consumer transport`,
+          error,
       );
       return { success: false, message: 'Failed to create consumer transport' };
     }
@@ -254,9 +273,9 @@ export class VoiceChatGateway
    */
   @SubscribeMessage('connectProducerTransport')
   async handleConnectProducerTransport(
-    @ConnectedSocket() socket: Socket,
-    @MessageBody()
-    data: { dtlsParameters: any },
+      @ConnectedSocket() socket: Socket,
+      @MessageBody()
+      data: { dtlsParameters: any },
   ) {
     try {
       const userState = this.userStates.get(socket.id);
@@ -265,12 +284,12 @@ export class VoiceChatGateway
       }
 
       await this.mediasoupService.connectTransport(
-        userState.producerTransportId,
-        data.dtlsParameters,
+          userState.producerTransportId,
+          data.dtlsParameters,
       );
 
       this.logger.log(
-        `Producer transport connected for user ${userState.userId}`,
+          `Producer transport connected for user ${userState.userId}`,
       );
 
       return { success: true };
@@ -288,9 +307,9 @@ export class VoiceChatGateway
    */
   @SubscribeMessage('connectConsumerTransport')
   async handleConnectConsumerTransport(
-    @ConnectedSocket() socket: Socket,
-    @MessageBody()
-    data: { dtlsParameters: any },
+      @ConnectedSocket() socket: Socket,
+      @MessageBody()
+      data: { dtlsParameters: any },
   ) {
     try {
       const userState = this.userStates.get(socket.id);
@@ -299,12 +318,12 @@ export class VoiceChatGateway
       }
 
       await this.mediasoupService.connectTransport(
-        userState.consumerTransportId,
-        data.dtlsParameters,
+          userState.consumerTransportId,
+          data.dtlsParameters,
       );
 
       this.logger.log(
-        `Consumer transport connected for user ${userState.userId}`,
+          `Consumer transport connected for user ${userState.userId}`,
       );
 
       return { success: true };
@@ -322,12 +341,12 @@ export class VoiceChatGateway
    */
   @SubscribeMessage('produce')
   async handleProduce(
-    @ConnectedSocket() socket: Socket,
-    @MessageBody()
-    data: {
-      kind: 'audio' | 'video';
-      rtpParameters: any;
-    },
+      @ConnectedSocket() socket: Socket,
+      @MessageBody()
+      data: {
+        kind: 'audio' | 'video';
+        rtpParameters: any;
+      },
   ) {
     try {
       const userState = this.userStates.get(socket.id);
@@ -336,12 +355,12 @@ export class VoiceChatGateway
       }
 
       const producer = await this.mediasoupService.createProducer(
-        userState.producerTransportId,
-        data.kind,
-        data.rtpParameters,
-        userState.userId,
-        socket.id,
-        userState.roomId,
+          userState.producerTransportId,
+          data.kind,
+          data.rtpParameters,
+          userState.userId,
+          socket.id,
+          userState.roomId,
       );
 
       if (!userState.producers) {
@@ -358,7 +377,7 @@ export class VoiceChatGateway
       });
 
       this.logger.log(
-        `Producer created: ${producer.producerId} for user ${userState.userId} (${data.kind})`,
+          `Producer created: ${producer.producerId} for user ${userState.userId} (${data.kind})`,
       );
 
       return {
@@ -376,12 +395,12 @@ export class VoiceChatGateway
    */
   @SubscribeMessage('consume')
   async handleConsume(
-    @ConnectedSocket() socket: Socket,
-    @MessageBody()
-    data: {
-      producerId: string;
-      rtpCapabilities: any;
-    },
+      @ConnectedSocket() socket: Socket,
+      @MessageBody()
+      data: {
+        producerId: string;
+        rtpCapabilities: any;
+      },
   ) {
     try {
       const userState = this.userStates.get(socket.id);
@@ -390,11 +409,11 @@ export class VoiceChatGateway
       }
 
       const consumer = await this.mediasoupService.createConsumer(
-        userState.consumerTransportId,
-        data.producerId,
-        data.rtpCapabilities,
-        socket.id,
-        userState.roomId,
+          userState.consumerTransportId,
+          data.producerId,
+          data.rtpCapabilities,
+          socket.id,
+          userState.roomId,
       );
 
       if (!userState.consumers) {
@@ -403,7 +422,7 @@ export class VoiceChatGateway
       userState.consumers.set(data.producerId, consumer.id);
 
       this.logger.log(
-        `Consumer created: ${consumer.id} for producer: ${data.producerId}`,
+          `Consumer created: ${consumer.id} for producer: ${data.producerId}`,
       );
 
       return {
@@ -422,11 +441,11 @@ export class VoiceChatGateway
     if (!userState) return;
 
     const producers = this.mediasoupService
-      .getProducersByRoomId(userState.roomId)
-      .map((p) => ({
-        producerId: p.producer.id,
-        socketId: p.socketId,
-      }));
+        .getProducersByRoomId(userState.roomId)
+        .map((p) => ({
+          producerId: p.producer.id,
+          socketId: p.socketId,
+        }));
 
     return producers;
   }
@@ -436,11 +455,11 @@ export class VoiceChatGateway
    */
   @SubscribeMessage('consumerResume')
   async handleConsumerResume(
-    @ConnectedSocket() socket: Socket,
-    @MessageBody()
-    data: {
-      consumerId: string;
-    },
+      @ConnectedSocket() socket: Socket,
+      @MessageBody()
+      data: {
+        consumerId: string;
+      },
   ) {
     try {
       await this.mediasoupService.resumeConsumer(data.consumerId);
@@ -459,13 +478,13 @@ export class VoiceChatGateway
    */
   @SubscribeMessage('getRtpCapabilities')
   handleGetRtpCapabilities(
-    @ConnectedSocket() socket: Socket,
-    @MessageBody() data: { roomId: string },
+      @ConnectedSocket() socket: Socket,
+      @MessageBody() data: { roomId: string },
   ) {
     try {
       const { roomId } = data;
       this.logger.log(
-        `[${socket.id}] RTP capabilities requested for room: ${roomId}`,
+          `[${socket.id}] RTP capabilities requested for room: ${roomId}`,
       );
 
       const router = this.mediasoupService.getRouter(roomId);
@@ -479,7 +498,7 @@ export class VoiceChatGateway
 
       const rtpCapabilities = router.rtpCapabilities;
       this.logger.log(
-        `[${socket.id}] RTP capabilities returned: ${JSON.stringify(rtpCapabilities).substring(0, 100)}...`,
+          `[${socket.id}] RTP capabilities returned: ${JSON.stringify(rtpCapabilities).substring(0, 100)}...`,
       );
 
       return {
@@ -494,8 +513,8 @@ export class VoiceChatGateway
 
   @SubscribeMessage('toggleMic')
   handleToggleMic(
-    @ConnectedSocket() socket: Socket,
-    @MessageBody() data: { isMuted: boolean },
+      @ConnectedSocket() socket: Socket,
+      @MessageBody() data: { isMuted: boolean },
   ) {
     const userState = this.userStates.get(socket.id);
     if (userState) {
@@ -509,15 +528,15 @@ export class VoiceChatGateway
       });
 
       this.logger.log(
-        `User ${userState.userId} ${data.isMuted ? 'muted' : 'unmuted'} mic`,
+          `User ${userState.userId} ${data.isMuted ? 'muted' : 'unmuted'} mic`,
       );
     }
   }
 
   @SubscribeMessage('toggleSong')
   handleToggleSong(
-    @ConnectedSocket() socket: Socket,
-    @MessageBody() data: { isMuted: boolean },
+      @ConnectedSocket() socket: Socket,
+      @MessageBody() data: { isMuted: boolean },
   ) {
     const userState = this.userStates.get(socket.id);
     if (userState) {
@@ -531,7 +550,7 @@ export class VoiceChatGateway
       });
 
       this.logger.log(
-        `User ${userState.userId} ${data.isMuted ? 'disabled' : 'enabled'} song`,
+          `User ${userState.userId} ${data.isMuted ? 'disabled' : 'enabled'} song`,
       );
     }
   }
