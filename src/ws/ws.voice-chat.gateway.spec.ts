@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import type { Socket } from 'socket.io';
 import { VoiceChatGateway } from './ws.voice-chat.gateway';
 import { MediasoupService } from '../mediasoup/mediasoup.service';
+import { WsJwtAuthService } from './ws-jwt-auth.service';
 
 const createMockSocket = (id: string) => {
   const roomEmit = jest.fn();
@@ -37,11 +38,15 @@ describe('VoiceChatGateway', () => {
       closeRouter: jest.fn(),
       cleanupSocketResources: jest.fn(),
     };
+    const mockWsJwtAuthService = {
+      authenticateSocket: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VoiceChatGateway,
         { provide: MediasoupService, useValue: mediasoupService },
+        { provide: WsJwtAuthService, useValue: mockWsJwtAuthService },
       ],
     }).compile();
 

@@ -4,6 +4,7 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
@@ -12,6 +13,7 @@ import { Logger, UseFilters } from '@nestjs/common';
 import { MediasoupService } from '../mediasoup/mediasoup.service';
 import { WsExceptionFilter } from '../exception/ws-exception.filter';
 import { UserMediaState } from './ws.types';
+import { WsJwtAuthService } from './ws-jwt-auth.service';
 
 @UseFilters(WsExceptionFilter)
 @WebSocketGateway({
@@ -24,7 +26,7 @@ import { UserMediaState } from './ws.types';
   pingTimeout: 60000,
 })
 export class VoiceChatGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
 {
   @WebSocketServer() server: Server;
 
@@ -33,7 +35,24 @@ export class VoiceChatGateway
   private roomUsers: Map<string, Set<string>> = new Map();
   private userConnectTimers: Map<string, NodeJS.Timeout> = new Map();
 
-  constructor(private mediasoupService: MediasoupService) {}
+  constructor(
+    private mediasoupService: MediasoupService,
+    private readonly wsJwtAuth: WsJwtAuthService,
+  ) {}
+
+  afterInit(server: Server) {
+    server.use((socket, next) => {
+      try {
+        this.wsJwtAuth.authenticateSocket(socket);
+        next();
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unauthorized connection';
+        this.logger.warn(`Socket ${socket.id} rejected: ${message}`);
+        next(new Error(message));
+      }
+    });
+  }
 
   handleConnection(@ConnectedSocket() socket: Socket) {
     this.logger.log(`Client connected: ${socket.id}`);
