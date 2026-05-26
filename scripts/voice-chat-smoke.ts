@@ -10,12 +10,18 @@ type TogglePayload = {
 };
 
 const serverUrl =
-  process.env.VOICE_CHAT_URL ?? 'http://localhost:3000/voice-chat';
+  process.env.VOICE_CHAT_URL ?? 'http://localhost:3002/voice-chat';
 const roomId = process.env.ROOM_ID ?? 'room-1';
 const userId = process.env.USER_ID ?? 'user-1';
+const jwtToken =
+  process.env.JWT_TOKEN ??
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTEiLCJlbWFpbCI6InVzZXIuMUBleGFtcGxlLmNvbSIsInV1aWQiOiJ1c2VyLTEiLCJpZCI6MSwidXNlcm5hbWUiOiJ1c2VyLTEifQ.rfu-f1e-7YMwLBELXnqu1zlWUxtMR9Z_iJEbNs35R14';
+const jwtTransport = (process.env.JWT_TRANSPORT ?? 'auth').toLowerCase();
 
 const socket = io(serverUrl, {
   transports: ['websocket'],
+  auth: jwtTransport === 'auth' ? { token: jwtToken } : undefined,
+  extraHeaders: { authorization: `Bearer ${jwtToken}` },
 });
 
 socket.on('connect', () => {

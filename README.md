@@ -35,6 +35,14 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+## WebSocket authentication
+
+The websocket JWT can be provided either as:
+- `auth: { token: '...' }` in the Socket.IO client options, or
+- `Authorization: Bearer ...` in the websocket headers.
+
+The smoke script defaults to the `auth` payload and still sends the bearer header as a fallback.
+
 ## Run tests
 
 ```bash

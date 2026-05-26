@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsGateway } from './ws.gateway';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
+import { WsJwtAuthService } from '../auth/ws-jwt-auth.service';
 import type { Socket } from 'socket.io';
 
 describe('WsGateway', () => {
@@ -20,6 +21,9 @@ describe('WsGateway', () => {
       },
     ),
   };
+  const mockWsJwtAuthService = {
+    authenticateSocket: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -28,6 +32,7 @@ describe('WsGateway', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WsGateway,
+        { provide: WsJwtAuthService, useValue: mockWsJwtAuthService },
         { provide: RabbitmqService, useValue: mockRabbitmqService },
       ],
     }).compile();
