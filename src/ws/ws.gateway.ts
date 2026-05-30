@@ -10,6 +10,7 @@ import { Logger, OnModuleInit, UseGuards } from '@nestjs/common';
 import type { Server, Socket } from 'socket.io';
 import type { MessagePayload } from './ws.types';
 import { WsJwtAuthGuard } from '../auth/ws-jwt.guard';
+import { WsJwtAuthService } from '../auth/ws-jwt-auth.service';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 @UseGuards(WsJwtAuthGuard)
@@ -21,6 +22,7 @@ export class WsGateway implements OnModuleInit {
 
   constructor(
     private readonly rabbitmq: RabbitmqService,
+    private readonly wsJwtAuthService: WsJwtAuthService,
   ) {}
 
   onModuleInit() {
@@ -34,8 +36,11 @@ export class WsGateway implements OnModuleInit {
     @MessageBody() roomId: string,
     @ConnectedSocket() client: Socket,
   ) {
+    const userId = this.wsJwtAuthService.authenticateSocket(client).uuid;
     await client.join(roomId);
-    this.logger.log(`Socket ${client.id} joined room ${roomId}`);
+    this.logger.log(
+      `Socket ${client.id} (user ${userId}) joined room ${roomId}`,
+    );
   }
 
   private forwardRabbitMessage(message: MessagePayload) {
