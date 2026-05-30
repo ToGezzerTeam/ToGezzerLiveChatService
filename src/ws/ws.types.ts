@@ -20,6 +20,7 @@ export interface UserMediaState {
   socketId: string;
   userId: string;
   roomId: string;
+  username: string;
   isMicMuted: boolean;
   isSongMuted: boolean;
   producerTransportId?: string;

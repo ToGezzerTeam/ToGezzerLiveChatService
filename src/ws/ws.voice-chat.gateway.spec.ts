@@ -27,7 +27,11 @@ const getSocketMocks = (socket: Socket) =>
 
 describe('VoiceChatGateway', () => {
   let gateway: VoiceChatGateway;
-  let mediasoupService: { createRouter: jest.Mock; closeRouter: jest.Mock; cleanupSocketResources?: jest.Mock };
+  let mediasoupService: {
+    createRouter: jest.Mock;
+    closeRouter: jest.Mock;
+    cleanupSocketResources?: jest.Mock;
+  };
   const mockWsJwtAuthService = {
     authenticateSocket: jest.fn(),
   };
@@ -35,6 +39,13 @@ describe('VoiceChatGateway', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+
+    mockWsJwtAuthService.authenticateSocket.mockReturnValue({
+      uuid: 'user-1',
+      username: 'testuser',
+      email: 'test@test.com',
+      id: 1,
+    });
 
     mediasoupService = {
       createRouter: jest.fn().mockResolvedValue(undefined),
@@ -70,12 +81,20 @@ describe('VoiceChatGateway', () => {
     const socket = createMockSocket('sock-1');
     const { emit } = getSocketMocks(socket);
 
-    const ret = await gateway.handleJoinVoiceRoom(socket, { roomId: '', userId: 'u1' });
+    const ret = await gateway.handleJoinVoiceRoom(socket, { roomId: '' });
 
     // return value contains the message
-    expect(ret).toEqual({ success: false, message: 'roomId and userId are required' });
+    expect(ret).toEqual({
+      success: false,
+      message: 'roomId and userId are required',
+    });
     // and emit may have been called with error - accept either
-    const emittedError = emit.mock.calls.some((c) => c[0] === 'error' && c[1] && c[1].message === 'roomId and userId are required');
+    const emittedError = emit.mock.calls.some(
+      (c) =>
+        c[0] === 'error' &&
+        c[1] &&
+        c[1].message === 'roomId and userId are required',
+    );
     expect(emittedError || ret).toBeTruthy();
   });
 
@@ -85,7 +104,6 @@ describe('VoiceChatGateway', () => {
 
     const ret = await gateway.handleJoinVoiceRoom(socket, {
       roomId: 'room-1',
-      userId: 'user-1',
     });
 
     expect(ret.success).toBe(true);
@@ -104,7 +122,6 @@ describe('VoiceChatGateway', () => {
 
     await gateway.handleJoinVoiceRoom(socket, {
       roomId: 'room-1',
-      userId: 'user-1',
     });
 
     expect(join).toHaveBeenCalledWith('room-1');
@@ -121,8 +138,16 @@ describe('VoiceChatGateway', () => {
       userId: 'user-1',
     });
 
-    expect(ret).toEqual({ success: false, message: 'Failed to join voice room' });
-    const emitted = emit.mock.calls.some((c) => c[0] === 'error' && c[1] && c[1].message === 'Failed to join voice room');
+    expect(ret).toEqual({
+      success: false,
+      message: 'Failed to join voice room',
+    });
+    const emitted = emit.mock.calls.some(
+      (c) =>
+        c[0] === 'error' &&
+        c[1] &&
+        c[1].message === 'Failed to join voice room',
+    );
     expect(emitted || ret).toBeTruthy();
   });
 

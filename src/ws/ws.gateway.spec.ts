@@ -29,6 +29,13 @@ describe('WsGateway', () => {
     jest.clearAllMocks();
     rabbitMessageHandler = null;
 
+    mockWsJwtAuthService.authenticateSocket.mockReturnValue({
+      uuid: 'user-1',
+      username: 'testuser',
+      email: 'test@test.com',
+      id: 1,
+    });
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WsGateway,
