@@ -55,3 +55,6 @@ $ npm run test:e2e
 # test coverage
 $ npm run test:cov
 ```
+# whith docker:
+
+docker compose up -d
