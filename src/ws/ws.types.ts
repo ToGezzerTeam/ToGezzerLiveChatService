@@ -7,6 +7,7 @@ export type MessagePayload = {
   uuid: string;
   roomId: string;
   authorId: string;
+  authorName: string;
   answerTo?: string;
   state: string;
   content: MessageContent;
