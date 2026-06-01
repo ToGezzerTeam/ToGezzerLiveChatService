@@ -11,22 +11,30 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - togezzer
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/togezzerteam/togezzerlivechatservice/livechat-service:latest
     container_name: togezzer-live-chat-service
     restart: unless-stopped
-    network_mode: host  # accès direct aux ports, pas de NAT
     depends_on:
       rabbitmq:
         condition: service_healthy
     env_file:
       - .env
+    ports:
+      - "3001:3000"
+      - "40000-40010:40000-40010/udp"
     environment:
       PORT: 3000
-      RABBITMQ_HOST: localhost  # host car network_mode: host
+      RABBITMQ_HOST: rabbitmq  # nom du service, plus localhost
       MEDIASOUP_ANNOUNCED_IP: ${MEDIASOUP_ANNOUNCED_IP:-127.0.0.1}
-      MEDIASOUP_MIN_PORT: ${MEDIASOUP_MIN_PORT:-40000}
-      MEDIASOUP_MAX_PORT: ${MEDIASOUP_MAX_PORT:-57000}
+      MEDIASOUP_MIN_PORT: 40000
+      MEDIASOUP_MAX_PORT: 44999  # aligné avec les ports exposés
+    networks:
+      - togezzer
+
+networks:
+  togezzer:
+    driver: bridge
