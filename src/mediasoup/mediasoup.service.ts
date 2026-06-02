@@ -46,14 +46,8 @@ export class MediasoupService implements OnModuleDestroy, OnModuleInit {
 
   async initialize() {
     try {
-      const minPort = this.configService.get<number>(
-        'MEDIASOUP_MIN_PORT',
-        40000,
-      );
-      const maxPort = this.configService.get<number>(
-        'MEDIASOUP_MAX_PORT',
-        57000,
-      );
+      const minPort = parseInt(this.configService.get<string>('MEDIASOUP_MIN_PORT', '40000'));
+      const maxPort = parseInt(this.configService.get<string>('MEDIASOUP_MAX_PORT', '40100'));
 
       this.worker = await createWorker({
         logLevel: 'warn',
