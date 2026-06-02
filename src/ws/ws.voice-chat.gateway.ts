@@ -22,7 +22,7 @@ import { WsJwtAuthService } from '../auth/ws-jwt-auth.service';
     origin: process.env.WS_CORS_ORIGIN || '*',
   },
   namespace: '/voice-chat',
-  transports: ['websocket', 'polling'],
+  transports: ['websocket'],
   pingInterval: 25000,
   pingTimeout: 60000,
 })
