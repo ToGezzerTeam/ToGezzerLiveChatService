@@ -50,8 +50,7 @@ export class WsGateway {
     @MessageBody() roomId: string,
     @ConnectedSocket() client: Socket,
   ) {
-    const user = this.wsJwtAuthService.authenticateSocket(client);
-    client.to(roomId).emit('userTyping', { userId: user.uuid, isTyping: true });
+    this.emitTyping(client, roomId, true);
   }
 
   @SubscribeMessage('stopTyping')
@@ -59,10 +58,16 @@ export class WsGateway {
     @MessageBody() roomId: string,
     @ConnectedSocket() client: Socket,
   ) {
+    this.emitTyping(client, roomId, false);
+  }
+
+  private emitTyping(client: Socket, roomId: string, isTyping: boolean) {
     const user = this.wsJwtAuthService.authenticateSocket(client);
-    client
-      .to(roomId)
-      .emit('userTyping', { userId: user.uuid, isTyping: false });
+    client.to(roomId).emit('userTyping', {
+      userId: user.uuid,
+      userName: user.username,
+      isTyping,
+    });
   }
 
   forwardRabbitMessage(message: MessagePayload) {
