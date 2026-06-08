@@ -45,6 +45,26 @@ export class WsGateway {
     );
   }
 
+  @SubscribeMessage('startTyping')
+  handleStartTyping(
+    @MessageBody() roomId: string,
+    @ConnectedSocket() client: Socket,
+  ) {
+    const user = this.wsJwtAuthService.authenticateSocket(client);
+    client.to(roomId).emit('userTyping', { userId: user.uuid, isTyping: true });
+  }
+
+  @SubscribeMessage('stopTyping')
+  handleStopTyping(
+    @MessageBody() roomId: string,
+    @ConnectedSocket() client: Socket,
+  ) {
+    const user = this.wsJwtAuthService.authenticateSocket(client);
+    client
+      .to(roomId)
+      .emit('userTyping', { userId: user.uuid, isTyping: false });
+  }
+
   forwardRabbitMessage(message: MessagePayload) {
     if (!message.roomId) {
       this.logger.warn('Message ignoré: roomId manquant');
