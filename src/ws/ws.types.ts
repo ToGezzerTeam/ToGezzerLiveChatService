@@ -17,6 +17,24 @@ export type MessagePayload = {
   deletedBy?: string;
 };
 
+export type UserPayload = {
+  uuid: string;
+  username: string;
+  serverUuid: string;
+};
+
+export type ChannelType = 'TEXT' | 'VOICE';
+
+export type StatusEvent = 'CREATED' | 'RENAME' | 'DELETED';
+
+export interface RoomEventPayload {
+  statusEvent: StatusEvent;
+  id: number;
+  uuid: string;
+  name: string;
+  channelType: ChannelType;
+  serverUuid: string;
+}
 export interface UserMediaState {
   socketId: string;
   userId: string;

@@ -19,6 +19,16 @@ describe('AppConfig', () => {
           return 'test-secret';
         case 'RABBITMQ_MESSAGE_QUEUE':
           return 'ws_messages';
+        case 'RABBITMQ_ROUTING_KEY':
+          return 'routing-message-live-chat-service';
+        case 'RABBITMQ_USER_QUEUE':
+          return 'queue-user';
+        case 'RABBITMQ_ROUTING_USER_KEY':
+          return 'routing-user';
+        case 'RABBITMQ_ROOM_QUEUE':
+          return 'queue-room';
+        case 'RABBITMQ_ROUTING_ROOM_KEY':
+          return 'routing-room';
         default:
           throw new Error(`Unknown key: ${key}`);
       }
@@ -43,8 +53,6 @@ describe('AppConfig', () => {
             return 'guest';
           case 'RABBITMQ_EXCHANGE':
             return 'message.exchange';
-          case 'RABBITMQ_ROUTING_KEY':
-            return 'routing-message-live-chat-service';
           case 'RABBITMQ_EXCHANGE_TYPE':
             return 'topic';
           case 'JWT_ISSUER':
@@ -95,12 +103,22 @@ describe('AppConfig', () => {
     expect(appConfig.getRabbitmqPort()).toBe(5672);
     expect(appConfig.getRabbitmqUsername()).toBe('guest');
     expect(appConfig.getRabbitmqPassword()).toBe('guest');
-    expect(appConfig.getRabbitmqMessageQueue()).toBe('ws_messages');
     expect(appConfig.getRabbitmqExchange()).toBe('message.exchange');
-    expect(appConfig.getRabbitmqRoutingKey()).toBe(
-      'routing-message-live-chat-service',
-    );
     expect(appConfig.getRabbitmqExchangeType()).toBe('topic');
+    expect(appConfig.getRabbitmqMessageQueue()).toStrictEqual({
+      queue: 'ws_messages',
+      routingKey: 'routing-message-live-chat-service',
+    });
+
+    expect(appConfig.getRabbitmqUserQueue()).toStrictEqual({
+      queue: 'queue-user',
+      routingKey: 'routing-user',
+    });
+
+    expect(appConfig.getRabbitmqRoomQueue()).toStrictEqual({
+      queue: 'queue-room',
+      routingKey: 'routing-room',
+    });
   });
 
   it('should return JWT fields', () => {

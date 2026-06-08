@@ -1,33 +1,21 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsGateway } from './ws.gateway';
-import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 import { WsJwtAuthService } from '../auth/ws-jwt-auth.service';
 import type { Socket } from 'socket.io';
 
 describe('WsGateway', () => {
   let gateway: WsGateway;
-  let rabbitMessageHandler: ((message: unknown) => Promise<void> | void) | null;
-
   const mockClient = {
     emit: jest.fn(),
     join: jest.fn().mockResolvedValue(undefined),
   } as unknown as Socket;
 
-  const mockRabbitmqService = {
-    sendMessage: jest.fn(),
-    registerMessageHandler: jest.fn(
-      (handler: (message: unknown) => Promise<void> | void) => {
-        rabbitMessageHandler = handler;
-      },
-    ),
-  };
   const mockWsJwtAuthService = {
     authenticateSocket: jest.fn(),
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    rabbitMessageHandler = null;
 
     mockWsJwtAuthService.authenticateSocket.mockReturnValue({
       uuid: 'user-1',
@@ -40,21 +28,18 @@ describe('WsGateway', () => {
       providers: [
         WsGateway,
         { provide: WsJwtAuthService, useValue: mockWsJwtAuthService },
-        { provide: RabbitmqService, useValue: mockRabbitmqService },
       ],
     }).compile();
 
     gateway = module.get<WsGateway>(WsGateway);
   });
 
-  describe('onModuleInit', () => {
-    it('should register RabbitMQ message handler on init', () => {
-      gateway.onModuleInit();
-      expect(mockRabbitmqService.registerMessageHandler).toHaveBeenCalledWith(
-        expect.any(Function),
-      );
-    });
-  });
+  function mockServer() {
+    const emitMock = jest.fn();
+    const serverTo = jest.fn().mockReturnValue({ emit: emitMock });
+    (gateway as any).server = { to: serverTo };
+    return { serverTo, emitMock };
+  }
 
   describe('handleJoinRoom', () => {
     it('should join socket to room', async () => {
@@ -68,66 +53,95 @@ describe('WsGateway', () => {
   });
 
   describe('forwardRabbitMessage', () => {
-    it('should forward message to specific room via server.to()', async () => {
-      const emitMock = jest.fn();
-      const serverTo = jest.fn().mockReturnValue({
-        emit: emitMock,
-      });
-      (
-        gateway as unknown as {
-          server: { to: (roomId: string) => { emit: jest.Mock } };
-        }
-      ).server = {
-        to: serverTo,
-      };
-
-      gateway.onModuleInit();
+    it('should forward message to specific room via server.to()', () => {
+      const { serverTo, emitMock } = mockServer();
 
       const message = {
         roomId: 'room-123',
         uuid: 'uuid-1',
         content: { type: 'text', value: 'hello' },
+        authorId: 'author-1',
+        authorName: 'toto',
+        state: 'created',
+        createdAt: 12,
       };
 
-      await rabbitMessageHandler?.(message);
+      gateway.forwardRabbitMessage(message);
 
       expect(serverTo).toHaveBeenCalledWith('room-123');
       expect(emitMock).toHaveBeenCalledWith('message', message);
     });
 
-    it('should ignore message without roomId', async () => {
-      const serverTo = jest.fn();
-      (
-        gateway as unknown as {
-          server: { to: (roomId: string) => void };
-        }
-      ).server = {
-        to: serverTo,
-      };
-
-      gateway.onModuleInit();
+    it('should ignore message without roomId', () => {
+      const { serverTo, emitMock } = mockServer();
 
       const message = {
         uuid: 'uuid-1',
         content: { type: 'text', value: 'hello' },
       };
 
-      await rabbitMessageHandler?.(message);
+      gateway.forwardRabbitMessage(message as any);
 
       expect(serverTo).not.toHaveBeenCalled();
     });
 
-    it('should handle message when server is undefined', async () => {
-      gateway.onModuleInit();
-
+    it('should handle message when server is undefined', () => {
       const message = {
         roomId: 'room-123',
         uuid: 'uuid-1',
         content: { type: 'text', value: 'hello' },
+        authorId: 'author-1',
+        authorName: 'toto',
+        state: 'created',
+        createdAt: 12,
       };
 
       // Should not throw error even if server is undefined
-      await rabbitMessageHandler?.(message);
+      gateway.forwardRabbitMessage(message);
+    });
+  });
+
+  describe('forwardToUser', () => {
+    it('should forward message to correct user room', () => {
+      const { serverTo, emitMock } = mockServer();
+      const message = { serverUuid: 'server-1', userId: 'user-1' };
+      gateway.forwardToUser(message as any);
+
+      expect(serverTo).toHaveBeenCalledWith('server-1');
+      expect(emitMock).toHaveBeenCalledWith('user', message);
+    });
+
+    it('should ignore message without serverUuid', () => {
+      const emitMock = jest.fn();
+      const serverTo = jest.fn().mockReturnValue({
+        emit: emitMock,
+      });
+
+      gateway.forwardToUser({ userId: 'user-1' } as any);
+
+      expect(serverTo).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('forwardToRoom', () => {
+    it('should forward room event to correct server room', () => {
+      const { serverTo, emitMock } = mockServer();
+      const message = { serverUuid: 'server-1', roomId: 'room-1' };
+      gateway.forwardToRoom(message as any);
+
+      expect(serverTo).toHaveBeenCalledWith('server-1');
+      expect(emitMock).toHaveBeenCalledWith('room', message);
+    });
+
+    it('should ignore message without serverUuid', () => {
+      const emitMock = jest.fn();
+      const serverTo = jest.fn().mockReturnValue({
+        emit: emitMock,
+      });
+
+      gateway.forwardToRoom({ roomId: 'room-1' } as any);
+
+      expect(serverTo).not.toHaveBeenCalled();
     });
   });
 });
