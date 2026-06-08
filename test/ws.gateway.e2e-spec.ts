@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { io, Socket as ClientSocket } from 'socket.io-client';
-import { RabbitmqService } from '../src/rabbitmq/rabbitmq.service';
 import { WsGateway } from '../src/ws/ws.gateway';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { WsJwtAuthService } from '../src/auth/ws-jwt-auth.service';
@@ -11,17 +10,8 @@ const TEST_PORT = 3001;
 
 describe('WsGateway (e2e)', () => {
   let app: INestApplication;
+  let gateway: WsGateway;
   let jwtToken: string;
-  let rabbitMessageHandler:
-    | ((message: unknown) => Promise<void> | void)
-    | null = null;
-  const mockRabbitmqService = {
-    registerMessageHandler: jest.fn(
-      (handler: (message: unknown) => Promise<void> | void) => {
-        rabbitMessageHandler = handler;
-      },
-    ),
-  };
 
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret';
@@ -33,23 +23,14 @@ describe('WsGateway (e2e)', () => {
       email: 'user.e2e@example.com',
       username: 'user-e2e-1',
     });
-    rabbitMessageHandler = null;
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [
-        JwtModule.register({ secret: process.env.JWT_SECRET }),
-      ],
-      providers: [
-        WsGateway,
-        WsJwtAuthGuard,
-        WsJwtAuthService,
-        {
-          provide: RabbitmqService,
-          useValue: mockRabbitmqService,
-        },
-      ],
+      imports: [JwtModule.register({ secret: process.env.JWT_SECRET })],
+      providers: [WsGateway, WsJwtAuthGuard, WsJwtAuthService],
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    gateway = moduleFixture.get<WsGateway>(WsGateway);
     await app.listen(TEST_PORT);
   });
 
@@ -59,7 +40,12 @@ describe('WsGateway (e2e)', () => {
 
   const assertForwardedMessage = async (
     clientSocket: ClientSocket,
-    message: { roomId: string; authorId: string; state: string; content: { type: string; value: string } },
+    message: {
+      roomId: string;
+      authorId: string;
+      state: string;
+      content: { type: string; value: string };
+    },
   ) => {
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -69,9 +55,8 @@ describe('WsGateway (e2e)', () => {
       clientSocket.on('connect', () => {
         clientSocket.emit('joinRoom', message.roomId);
 
-        // Let the join be processed before simulating RabbitMQ delivery.
         setTimeout(() => {
-          void rabbitMessageHandler?.(message);
+          gateway.forwardRabbitMessage(message as any); // ← appel direct
         }, 50);
       });
 
@@ -104,8 +89,6 @@ describe('WsGateway (e2e)', () => {
     } finally {
       clientSocket.disconnect();
     }
-
-    expect(mockRabbitmqService.registerMessageHandler).toHaveBeenCalledTimes(1);
   });
 
   it('client should join room and receive forwarded RabbitMQ message with Authorization header', async () => {
