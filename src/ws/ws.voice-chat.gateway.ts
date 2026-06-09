@@ -64,7 +64,7 @@ export class VoiceChatGateway
 
     const userState = this.userStates.get(socket.id);
     if (userState) {
-      const { roomId } = userState;
+      const { roomId, serverId } = userState;
 
       // Nettoyer les ressources WebRTC
       this.mediasoupService.cleanupSocketResources(socket.id);
@@ -76,6 +76,26 @@ export class VoiceChatGateway
           socketId: socket.id,
           userId: userState.userId,
         });
+
+        // Émettre l'événement de mise à jour des utilisateurs vocaux au serveur
+        if (serverId) {
+          const allUsersInRoom = Array.from(roomUsers)
+            .map((id) => {
+              const state = this.userStates.get(id);
+              return state
+                ? {
+                    userId: state.userId,
+                    username: state.username,
+                  }
+                : null;
+            })
+            .filter(Boolean) as any[];
+
+          this.server.to(serverId).emit('vocalsUsersUpdate', {
+            roomId,
+            users: allUsersInRoom,
+          });
+        }
 
         if (roomUsers.size === 0) {
           this.mediasoupService.closeRouter(roomId);
@@ -90,10 +110,10 @@ export class VoiceChatGateway
   @SubscribeMessage('joinVoiceRoom')
   async handleJoinVoiceRoom(
     @ConnectedSocket() socket: Socket,
-    @MessageBody() data: { roomId: string },
+    @MessageBody() data: { roomId: string; serverId: string },
   ) {
     try {
-      const { roomId } = data;
+      const { roomId, serverId } = data;
       const userId = this.wsJwtAuthService.authenticateSocket(socket).uuid;
       const username =
         this.wsJwtAuthService.authenticateSocket(socket).username;
@@ -133,6 +153,7 @@ export class VoiceChatGateway
         userId,
         username,
         roomId,
+        serverId,
         isMicMuted: false,
         isSongMuted: false,
       };
@@ -157,6 +178,27 @@ export class VoiceChatGateway
         username,
         isMicMuted: userState.isMicMuted,
         isSongMuted: userState.isSongMuted,
+      });
+
+      // Notifier les utilisateurs vocaux au serveur
+      const allUsersInRoom = Array.from(this.roomUsers.get(roomId) || [])
+        .map((id) => {
+          const state = this.userStates.get(id);
+          return state
+            ? {
+                userId: state.userId,
+                username: state.username,
+              }
+            : null;
+        })
+        .filter(Boolean) as any[];
+
+      this.logger.log(
+        `Sending vocalsUsersUpdate event ${serverId} : ${JSON.stringify(allUsersInRoom)}`,
+      );
+      this.server.to(serverId).emit('vocalsUsersUpdate', {
+        roomId,
+        users: allUsersInRoom,
       });
 
       this.logger.log(
@@ -553,7 +595,7 @@ export class VoiceChatGateway
   async handleLeaveVoiceRoom(@ConnectedSocket() socket: Socket) {
     const userState = this.userStates.get(socket.id);
     if (userState) {
-      const { roomId } = userState;
+      const { roomId, serverId } = userState;
       await socket.leave(roomId);
 
       // Nettoyer les ressources WebRTC
@@ -562,6 +604,27 @@ export class VoiceChatGateway
       const roomUsers = this.roomUsers.get(roomId);
       if (roomUsers) {
         roomUsers.delete(socket.id);
+
+        // Notifier les utilisateurs vocaux au serveur
+        if (serverId) {
+          const allUsersInRoom = Array.from(roomUsers)
+            .map((id) => {
+              const state = this.userStates.get(id);
+              return state
+                ? {
+                    userId: state.userId,
+                    username: state.username,
+                  }
+                : null;
+            })
+            .filter(Boolean) as any[];
+
+          this.server.to(serverId).emit('vocalsUsersUpdate', {
+            roomId,
+            users: allUsersInRoom,
+          });
+        }
+
         if (roomUsers.size === 0) {
           this.mediasoupService.closeRouter(roomId);
           this.roomUsers.delete(roomId);

@@ -39,6 +39,7 @@ export interface UserMediaState {
   socketId: string;
   userId: string;
   roomId: string;
+  serverId: string;
   username: string;
   isMicMuted: boolean;
   isSongMuted: boolean;
@@ -46,6 +47,16 @@ export interface UserMediaState {
   consumerTransportId?: string;
   producers?: Map<'audio' | 'video', string>; // kind -> producerId
   consumers?: Map<string, string>; // producerId -> consumerId
+}
+
+export interface VocalRoomUser {
+  userId: string;
+  username: string;
+}
+
+export interface VocalUsersUpdateEvent {
+  roomId: string;
+  users: VocalRoomUser[];
 }
 
 export interface WebRtcTransportInfo {

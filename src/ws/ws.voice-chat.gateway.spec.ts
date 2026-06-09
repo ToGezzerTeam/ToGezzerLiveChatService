@@ -32,6 +32,9 @@ describe('VoiceChatGateway', () => {
     closeRouter: jest.Mock;
     cleanupSocketResources?: jest.Mock;
   };
+  let mockServer: {
+    to: jest.Mock;
+  };
   const mockWsJwtAuthService = {
     authenticateSocket: jest.fn(),
   };
@@ -47,6 +50,10 @@ describe('VoiceChatGateway', () => {
       id: 1,
     });
 
+    mockServer = {
+      to: jest.fn().mockReturnValue({ emit: jest.fn() }),
+    };
+
     mediasoupService = {
       createRouter: jest.fn().mockResolvedValue(undefined),
       closeRouter: jest.fn(),
@@ -61,6 +68,7 @@ describe('VoiceChatGateway', () => {
     }).compile();
 
     gateway = module.get<VoiceChatGateway>(VoiceChatGateway);
+    gateway.server = mockServer as any;
   });
 
   afterEach(() => {
@@ -104,6 +112,7 @@ describe('VoiceChatGateway', () => {
 
     const ret = await gateway.handleJoinVoiceRoom(socket, {
       roomId: 'room-1',
+      serverId: 'server-1',
     });
 
     expect(ret.success).toBe(true);
@@ -122,6 +131,7 @@ describe('VoiceChatGateway', () => {
 
     await gateway.handleJoinVoiceRoom(socket, {
       roomId: 'room-1',
+      serverId: 'server-1',
     });
 
     expect(join).toHaveBeenCalledWith('room-1');
@@ -135,7 +145,7 @@ describe('VoiceChatGateway', () => {
 
     const ret = await gateway.handleJoinVoiceRoom(socket, {
       roomId: 'room-1',
-      userId: 'user-1',
+      serverId: 'server-1',
     });
 
     expect(ret).toEqual({
