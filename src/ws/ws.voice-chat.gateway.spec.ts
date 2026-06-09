@@ -3,6 +3,7 @@ import type { Socket } from 'socket.io';
 import { VoiceChatGateway } from './ws.voice-chat.gateway';
 import { MediasoupService } from '../mediasoup/mediasoup.service';
 import { WsJwtAuthService } from '../auth/ws-jwt-auth.service';
+import { WsGateway } from './ws.gateway';
 
 const createMockSocket = (id: string) => {
   const roomEmit = jest.fn();
@@ -38,6 +39,11 @@ describe('VoiceChatGateway', () => {
   const mockWsJwtAuthService = {
     authenticateSocket: jest.fn(),
   };
+  const mockWsGateway = {
+    updateVocalRoomState: jest.fn(),
+    forwardVocalRoomUpdate: jest.fn(),
+    forwardVocalMediaState: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -64,6 +70,7 @@ describe('VoiceChatGateway', () => {
         VoiceChatGateway,
         { provide: WsJwtAuthService, useValue: mockWsJwtAuthService },
         { provide: MediasoupService, useValue: mediasoupService },
+        { provide: WsGateway, useValue: mockWsGateway },
       ],
     }).compile();
 
@@ -367,6 +374,7 @@ describe('VoiceChatGateway', () => {
           VoiceChatGateway,
           { provide: WsJwtAuthService, useValue: mockWsJwtAuthService },
           { provide: MediasoupService, useValue: mediasoupService },
+          { provide: WsGateway, useValue: mockWsGateway }
         ],
       }).compile();
 
@@ -537,6 +545,7 @@ describe('VoiceChatGateway', () => {
           VoiceChatGateway,
           { provide: WsJwtAuthService, useValue: mockWsJwtAuthService },
           { provide: MediasoupService, useValue: mediasoupService },
+          { provide: WsGateway, useValue: mockWsGateway }
         ],
       }).compile();
 
@@ -636,6 +645,7 @@ describe('VoiceChatGateway', () => {
           VoiceChatGateway,
           { provide: WsJwtAuthService, useValue: mockWsJwtAuthService },
           { provide: MediasoupService, useValue: mediasoupService },
+          { provide: WsGateway, useValue: mockWsGateway }
         ],
       }).compile();
 
