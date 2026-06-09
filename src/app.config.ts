@@ -1,16 +1,22 @@
 import { Injectable, LOG_LEVELS, LogLevel } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+export interface RabbitmqQueueConfig {
+  queue: string;
+  routingKey: string;
+}
+
 @Injectable()
 export class AppConfig {
   private rabbitmqHost: string;
   private rabbitmqPort: number;
   private rabbitmqUsername: string;
   private rabbitmqPassword: string;
-  private rabbitmqMessageQueue: string;
+  private rabbitmqMessageQueue: RabbitmqQueueConfig;
   private rabbitmqExchange: string;
-  private rabbitmqRoutingKey: string;
   private rabbitmqExchangeType: string;
+  private rabbitmqUserQueue: RabbitmqQueueConfig;
+  private rabbitmqRoomQueue: RabbitmqQueueConfig;
   private jwtSecret: string;
   private jwtIssuer: string | undefined;
   private jwtAudience: string | undefined;
@@ -42,21 +48,27 @@ export class AppConfig {
       'RABBITMQ_PASSWORD',
       'guest',
     );
-    this.rabbitmqMessageQueue = this.config.getOrThrow<string>(
-      'RABBITMQ_MESSAGE_QUEUE',
-    );
     this.rabbitmqExchange = this.config.get<string>(
       'RABBITMQ_EXCHANGE',
       'amq.topic',
-    );
-    this.rabbitmqRoutingKey = this.config.get<string>(
-      'RABBITMQ_ROUTING_KEY',
-      'routing-message-live-chat-service',
     );
     this.rabbitmqExchangeType = this.config.get<string>(
       'RABBITMQ_EXCHANGE_TYPE',
       'direct',
     );
+    this.rabbitmqMessageQueue = {
+      queue: this.config.getOrThrow<string>('RABBITMQ_MESSAGE_QUEUE'),
+      routingKey: this.config.getOrThrow<string>('RABBITMQ_ROUTING_KEY'),
+    };
+    this.rabbitmqUserQueue = {
+      queue: this.config.getOrThrow<string>('RABBITMQ_USER_QUEUE'),
+      routingKey: this.config.getOrThrow<string>('RABBITMQ_ROUTING_USER_KEY'),
+    };
+
+    this.rabbitmqRoomQueue = {
+      queue: this.config.getOrThrow<string>('RABBITMQ_ROOM_QUEUE'),
+      routingKey: this.config.getOrThrow<string>('RABBITMQ_ROUTING_ROOM_KEY'),
+    };
   }
 
   private parseOrigins(value: string): string | string[] {
@@ -102,16 +114,20 @@ export class AppConfig {
     return this.rabbitmqPassword;
   }
 
-  getRabbitmqMessageQueue(): string {
-    return this.rabbitmqMessageQueue;
-  }
-
   getRabbitmqExchange(): string {
     return this.rabbitmqExchange;
   }
 
-  getRabbitmqRoutingKey(): string {
-    return this.rabbitmqRoutingKey;
+  getRabbitmqMessageQueue(): RabbitmqQueueConfig {
+    return this.rabbitmqMessageQueue;
+  }
+
+  getRabbitmqUserQueue(): RabbitmqQueueConfig {
+    return this.rabbitmqUserQueue;
+  }
+
+  getRabbitmqRoomQueue(): RabbitmqQueueConfig {
+    return this.rabbitmqRoomQueue;
   }
 
   getRabbitmqExchangeType(): string {

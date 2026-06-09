@@ -13,7 +13,6 @@ type MockChannel = {
   assertQueue: jest.Mock;
   bindQueue: jest.Mock;
   consume: jest.Mock;
-  publish: jest.Mock;
   ack: jest.Mock;
   nack: jest.Mock;
 };
@@ -26,30 +25,21 @@ describe('RabbitmqService', () => {
   let service: RabbitmqService;
   let mockChannel: MockChannel;
   let mockConnection: MockConnection;
-  let consumeCallback: ConsumeHandler | null;
 
   const mockAppConfig = {
     getRabbitmqUrl: jest.fn(() => 'amqp://guest:guest@localhost:5672'),
-    getRabbitmqMessageQueue: jest.fn(() => 'test-queue'),
     getRabbitmqExchange: jest.fn(() => 'message.exchange'),
-    getRabbitmqRoutingKey: jest.fn(() => 'routing-message-live-chat-service'),
     getRabbitmqExchangeType: jest.fn(() => 'direct'),
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    consumeCallback = null;
 
     mockChannel = {
       assertExchange: jest.fn(),
       assertQueue: jest.fn(),
       bindQueue: jest.fn(),
-      consume: jest
-        .fn()
-        .mockImplementation((_queue: string, cb: ConsumeHandler) => {
-          consumeCallback = cb;
-        }),
-      publish: jest.fn(),
+      consume: jest.fn(),
       ack: jest.fn(),
       nack: jest.fn(),
     };
@@ -63,100 +53,114 @@ describe('RabbitmqService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RabbitmqService,
-        {
-          provide: AppConfig,
-          useValue: mockAppConfig,
-        },
+        { provide: AppConfig, useValue: mockAppConfig },
       ],
     }).compile();
 
     service = module.get<RabbitmqService>(RabbitmqService);
-    await service.onModuleInit();
   });
-
   describe('onModuleInit', () => {
-    it('should create exchange, queue, binding and consumer', () => {
+    it('should create exchange only (no bindings)', async () => {
+      await service.onModuleInit();
+
       expect(mockConnection.createChannel).toHaveBeenCalled();
       expect(mockChannel.assertExchange).toHaveBeenCalledWith(
         'message.exchange',
         'direct',
         { durable: true },
       );
-      expect(mockChannel.assertQueue).toHaveBeenCalledWith('test-queue', {
+      expect(mockChannel.assertQueue).not.toHaveBeenCalled();
+      expect(mockChannel.consume).not.toHaveBeenCalled();
+    });
+
+    it('should setup queue for each registered binding', async () => {
+      await service.onModuleInit();
+      await service.registerQueue('queue-msg', 'routing-msg', jest.fn());
+      await service.registerQueue('queue-user', 'routing-user', jest.fn());
+
+      expect(mockChannel.assertQueue).toHaveBeenCalledTimes(2);
+      expect(mockChannel.assertQueue).toHaveBeenCalledWith('queue-msg', {
         durable: true,
       });
-      expect(mockChannel.bindQueue).toHaveBeenCalledWith(
-        'test-queue',
-        'message.exchange',
-        'routing-message-live-chat-service',
-      );
-      expect(mockChannel.consume).toHaveBeenCalledWith(
-        'test-queue',
-        expect.any(Function),
-      );
-    });
-  });
-
-  describe('registerMessageHandler', () => {
-    it('should register and call handler when message received', async () => {
-      const handler = jest.fn();
-      service.registerMessageHandler(handler);
-
-      const consumedMessage = {
-        content: Buffer.from(
-          JSON.stringify({ uuid: 'u1', roomId: 'r1', content: 'hello' }),
-        ),
-      } as ConsumeMessage;
-
-      consumeCallback?.(consumedMessage);
-      await Promise.resolve();
-
-      expect(handler).toHaveBeenCalledWith({
-        uuid: 'u1',
-        roomId: 'r1',
-        content: 'hello',
+      expect(mockChannel.assertQueue).toHaveBeenCalledWith('queue-user', {
+        durable: true,
       });
+
+      expect(mockChannel.bindQueue).toHaveBeenCalledWith(
+        'queue-msg',
+        'message.exchange',
+        'routing-msg',
+      );
+      expect(mockChannel.bindQueue).toHaveBeenCalledWith(
+        'queue-user',
+        'message.exchange',
+        'routing-user',
+      );
+
+      expect(mockChannel.consume).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('message consumption', () => {
-    it('should ack message when JSON payload is valid', async () => {
-      service.registerMessageHandler(jest.fn());
+    it('should call handler and ack on valid message', async () => {
+      const handler = jest.fn();
+      const consumeCallbacks: Record<string, ConsumeHandler> = {};
 
-      const consumedMessage = {
-        content: Buffer.from(
-          JSON.stringify({ uuid: 'u1', roomId: 'r1', state: 'created' }),
-        ),
+      mockChannel.consume.mockImplementation(
+        (queue: string, cb: ConsumeHandler) => {
+          consumeCallbacks[queue] = cb;
+        },
+      );
+      await service.onModuleInit();
+      await service.registerQueue('queue-msg', 'routing-msg', handler);
+
+      const message = {
+        content: Buffer.from(JSON.stringify({ uuid: 'u1', roomId: 'r1' })),
       } as ConsumeMessage;
 
-      consumeCallback?.(consumedMessage);
+      consumeCallbacks['queue-msg'](message);
       await Promise.resolve();
 
-      expect(mockChannel.ack).toHaveBeenCalledWith(consumedMessage);
+      expect(handler).toHaveBeenCalledWith({ uuid: 'u1', roomId: 'r1' });
+      expect(mockChannel.ack).toHaveBeenCalledWith(message);
       expect(mockChannel.nack).not.toHaveBeenCalled();
     });
 
-    it('should nack when payload is not valid JSON', async () => {
-      const consumedMessage = {
+    it('should nack on invalid JSON', async () => {
+      const consumeCallbacks: Record<string, ConsumeHandler> = {};
+
+      mockChannel.consume.mockImplementation(
+        (queue: string, cb: ConsumeHandler) => {
+          consumeCallbacks[queue] = cb;
+        },
+      );
+      await service.onModuleInit();
+      await service.registerQueue('queue-msg', 'routing-msg', jest.fn());
+
+      const message = {
         content: Buffer.from('{invalid-json'),
       } as ConsumeMessage;
 
-      consumeCallback?.(consumedMessage);
+      consumeCallbacks['queue-msg'](message);
       await Promise.resolve();
 
       expect(mockChannel.ack).not.toHaveBeenCalled();
-      expect(mockChannel.nack).toHaveBeenCalledWith(
-        consumedMessage,
-        false,
-        false,
-      );
+      expect(mockChannel.nack).toHaveBeenCalledWith(message, false, false);
     });
 
     it('should ignore null message', async () => {
       const handler = jest.fn();
-      service.registerMessageHandler(handler);
+      const consumeCallbacks: Record<string, ConsumeHandler> = {};
 
-      consumeCallback?.(null);
+      mockChannel.consume.mockImplementation(
+        (queue: string, cb: ConsumeHandler) => {
+          consumeCallbacks[queue] = cb;
+        },
+      );
+      await service.onModuleInit();
+      await service.registerQueue('queue-msg', 'routing-msg', handler);
+
+      consumeCallbacks['queue-msg'](null);
       await Promise.resolve();
 
       expect(handler).not.toHaveBeenCalled();
@@ -164,38 +168,57 @@ describe('RabbitmqService', () => {
       expect(mockChannel.nack).not.toHaveBeenCalled();
     });
 
-    it('should call handler even without prior registration', async () => {
-      const consumedMessage = {
-        content: Buffer.from(
-          JSON.stringify({ uuid: 'u1', roomId: 'r1', state: 'created' }),
-        ),
-      } as ConsumeMessage;
-
-      consumeCallback?.(consumedMessage);
-      await Promise.resolve();
-
-      expect(mockChannel.ack).toHaveBeenCalledWith(consumedMessage);
-    });
-
-    it('should handle error in handler gracefully', async () => {
+    it('should nack when handler throws', async () => {
       const handler = jest.fn().mockRejectedValue(new Error('Handler error'));
-      service.registerMessageHandler(handler);
+      const consumeCallbacks: Record<string, ConsumeHandler> = {};
 
-      const consumedMessage = {
-        content: Buffer.from(
-          JSON.stringify({ uuid: 'u1', roomId: 'r1', state: 'created' }),
-        ),
+      mockChannel.consume.mockImplementation(
+        (queue: string, cb: ConsumeHandler) => {
+          consumeCallbacks[queue] = cb;
+        },
+      );
+      await service.onModuleInit();
+      await service.registerQueue('queue-msg', 'routing-msg', handler);
+
+      const message = {
+        content: Buffer.from(JSON.stringify({ uuid: 'u1' })),
       } as ConsumeMessage;
 
-      consumeCallback?.(consumedMessage);
+      consumeCallbacks['queue-msg'](message);
       await Promise.resolve();
 
       expect(handler).toHaveBeenCalled();
-      expect(mockChannel.nack).toHaveBeenCalledWith(
-        consumedMessage,
-        false,
-        false,
+      expect(mockChannel.nack).toHaveBeenCalledWith(message, false, false);
+    });
+
+    it('should route messages to the correct handler per queue', async () => {
+      const handlerMsg = jest.fn();
+      const handlerUser = jest.fn();
+      const consumeCallbacks: Record<string, ConsumeHandler> = {};
+
+      mockChannel.consume.mockImplementation(
+        (queue: string, cb: ConsumeHandler) => {
+          consumeCallbacks[queue] = cb;
+        },
       );
+      await service.onModuleInit();
+      await service.registerQueue('queue-msg', 'routing-msg', handlerMsg);
+      await service.registerQueue('queue-user', 'routing-user', handlerUser);
+
+      const msgMessage = {
+        content: Buffer.from(JSON.stringify({ type: 'message' })),
+      } as ConsumeMessage;
+
+      const userMessage = {
+        content: Buffer.from(JSON.stringify({ type: 'user' })),
+      } as ConsumeMessage;
+
+      consumeCallbacks['queue-msg'](msgMessage);
+      consumeCallbacks['queue-user'](userMessage);
+      await Promise.resolve();
+
+      expect(handlerMsg).toHaveBeenCalledWith({ type: 'message' });
+      expect(handlerUser).toHaveBeenCalledWith({ type: 'user' });
     });
   });
 });

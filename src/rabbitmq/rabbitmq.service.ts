@@ -9,14 +9,11 @@ export class RabbitmqService implements OnModuleInit {
   private readonly logger = new Logger(RabbitmqService.name);
   private connection!: ChannelModel;
   private channel!: Channel;
-  private messageHandler?: RabbitMessageHandler;
 
   constructor(private readonly config: AppConfig) {}
 
   async onModuleInit() {
     const exchange = this.config.getRabbitmqExchange();
-    const queue = this.config.getRabbitmqMessageQueue();
-    const routingKey = this.config.getRabbitmqRoutingKey();
 
     this.connection = await connect(this.config.getRabbitmqUrl());
     this.channel = await this.connection.createChannel();
@@ -24,14 +21,23 @@ export class RabbitmqService implements OnModuleInit {
     await this.channel.assertExchange(
       exchange,
       this.config.getRabbitmqExchangeType(),
-      {
-        durable: true,
-      },
+      { durable: true },
     );
+
+    this.logger.log(`RabbitMQ connected to exchange="${exchange}"`);
+  }
+
+  async registerQueue(
+    queue: string,
+    routingKey: string,
+    handler: RabbitMessageHandler,
+  ) {
+    const exchange = this.config.getRabbitmqExchange();
+
     await this.channel.assertQueue(queue, { durable: true });
     await this.channel.bindQueue(queue, exchange, routingKey);
     await this.channel.consume(queue, (message) => {
-      void this.handleIncomingMessage(message);
+      void this.handleIncomingMessage(message, { queue, handler });
     });
 
     this.logger.log(
@@ -39,26 +45,23 @@ export class RabbitmqService implements OnModuleInit {
     );
   }
 
-  registerMessageHandler(handler: RabbitMessageHandler) {
-    this.messageHandler = handler;
-  }
-
-  private async handleIncomingMessage(message: ConsumeMessage | null) {
+  private async handleIncomingMessage(
+    message: ConsumeMessage | null,
+    binding: { queue: string; handler: RabbitMessageHandler },
+  ) {
     if (!message) return;
 
     try {
       const parsedMessage: unknown = JSON.parse(
         message.content.toString('utf-8'),
       );
-
-      if (this.messageHandler) {
-        await this.messageHandler(parsedMessage);
-      }
-
+      await binding.handler(parsedMessage);
       this.channel.ack(message);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Invalid RabbitMQ message payload: ${reason}`);
+      this.logger.error(
+        `Invalid RabbitMQ message on queue="${binding.queue}": ${reason}`,
+      );
       this.channel.nack(message, false, false);
     }
   }
