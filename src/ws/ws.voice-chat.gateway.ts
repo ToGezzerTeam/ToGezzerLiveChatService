@@ -8,7 +8,7 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, UseFilters, UseGuards } from '@nestjs/common';
+import { Logger, UseFilters, UseGuards, Inject, forwardRef } from '@nestjs/common';
 import { MediasoupService } from '../mediasoup/mediasoup.service';
 import { WsExceptionFilter } from '../exception/ws-exception.filter';
 import { UserMediaState } from './ws.types';
@@ -40,7 +40,8 @@ export class VoiceChatGateway
   constructor(
     private mediasoupService: MediasoupService,
     private wsJwtAuthService: WsJwtAuthService,
-    private wsGateway: WsGateway,
+    @Inject(forwardRef(() => WsGateway))
+    private readonly wsGateway: WsGateway,
   ) {}
 
   handleConnection(@ConnectedSocket() socket: Socket) {
@@ -93,13 +94,10 @@ export class VoiceChatGateway
             })
             .filter(Boolean) as any[];
 
-          this.server.to(serverId).emit('vocalsUsersUpdate', {
+          this.wsGateway.emitVocalsUsersUpdate(serverId, {
             roomId,
             users: allUsersInRoom,
           });
-
-          this.wsGateway.updateVocalRoomState(serverId, roomId, allUsersInRoom);
-          this.wsGateway.forwardVocalRoomUpdate(serverId, roomId, allUsersInRoom);
         }
 
         if (roomUsers.size === 0) {
@@ -201,12 +199,10 @@ export class VoiceChatGateway
       this.logger.log(
         `Sending vocalsUsersUpdate event ${serverId} : ${JSON.stringify(allUsersInRoom)}`,
       );
-      this.server.to(serverId).emit('vocalsUsersUpdate', {
+      this.wsGateway.emitVocalsUsersUpdate(serverId, {
         roomId,
         users: allUsersInRoom,
       });
-      this.wsGateway.updateVocalRoomState(serverId, roomId, allUsersInRoom);
-      this.wsGateway.forwardVocalRoomUpdate(serverId, roomId, allUsersInRoom);
 
       this.logger.log(
         `[${socket.id}] User ${userId} joined room ${roomId}. Existing users: ${existingUsers.length}`,
@@ -570,17 +566,6 @@ export class VoiceChatGateway
         isSongMuted: userState.isSongMuted,
       });
 
-      this.wsGateway.forwardVocalMediaState(
-        userState.serverId,
-        userState.roomId,
-        {
-          socketId: socket.id,
-          userId: userState.userId,
-          isMicMuted: userState.isMicMuted,
-          isSongMuted: userState.isSongMuted,
-        },
-      );
-
       this.logger.log(
         `User ${userState.userId} ${data.isMuted ? 'muted' : 'unmuted'} mic`,
       );
@@ -602,17 +587,6 @@ export class VoiceChatGateway
         isMicMuted: userState.isMicMuted,
         isSongMuted: userState.isSongMuted,
       });
-
-      this.wsGateway.forwardVocalMediaState(
-        userState.serverId,
-        userState.roomId,
-        {
-          socketId: socket.id,
-          userId: userState.userId,
-          isMicMuted: userState.isMicMuted,
-          isSongMuted: userState.isSongMuted,
-        },
-      );
 
       this.logger.log(
         `User ${userState.userId} ${data.isMuted ? 'disabled' : 'enabled'} song`,
@@ -648,16 +622,10 @@ export class VoiceChatGateway
             })
             .filter(Boolean) as any[];
 
-          this.server.to(serverId).emit('vocalsUsersUpdate', {
+          this.wsGateway.emitVocalsUsersUpdate(serverId, {
             roomId,
             users: allUsersInRoom,
           });
-          this.wsGateway.updateVocalRoomState(serverId, roomId, allUsersInRoom);
-          this.wsGateway.forwardVocalRoomUpdate(
-            serverId,
-            roomId,
-            allUsersInRoom,
-          );
         }
 
         if (roomUsers.size === 0) {
