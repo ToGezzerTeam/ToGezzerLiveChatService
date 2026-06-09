@@ -39,11 +39,6 @@ describe('VoiceChatGateway', () => {
   const mockWsJwtAuthService = {
     authenticateSocket: jest.fn(),
   };
-  const mockWsGateway = {
-    updateVocalRoomState: jest.fn(),
-    forwardVocalRoomUpdate: jest.fn(),
-    forwardVocalMediaState: jest.fn(),
-  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -70,7 +65,7 @@ describe('VoiceChatGateway', () => {
         VoiceChatGateway,
         { provide: WsJwtAuthService, useValue: mockWsJwtAuthService },
         { provide: MediasoupService, useValue: mediasoupService },
-        { provide: WsGateway, useValue: mockWsGateway },
+        { provide: WsGateway, useValue: { emitVocalsUsersUpdate: jest.fn(), emitVocalsSnapshot: jest.fn() } },
       ],
     }).compile();
 
@@ -374,7 +369,7 @@ describe('VoiceChatGateway', () => {
           VoiceChatGateway,
           { provide: WsJwtAuthService, useValue: mockWsJwtAuthService },
           { provide: MediasoupService, useValue: mediasoupService },
-          { provide: WsGateway, useValue: mockWsGateway }
+          { provide: WsGateway, useValue: { emitVocalsUsersUpdate: jest.fn(), emitVocalsSnapshot: jest.fn() } },
         ],
       }).compile();
 
@@ -545,7 +540,7 @@ describe('VoiceChatGateway', () => {
           VoiceChatGateway,
           { provide: WsJwtAuthService, useValue: mockWsJwtAuthService },
           { provide: MediasoupService, useValue: mediasoupService },
-          { provide: WsGateway, useValue: mockWsGateway }
+          { provide: WsGateway, useValue: { emitVocalsUsersUpdate: jest.fn(), emitVocalsSnapshot: jest.fn() } },
         ],
       }).compile();
 
@@ -645,7 +640,7 @@ describe('VoiceChatGateway', () => {
           VoiceChatGateway,
           { provide: WsJwtAuthService, useValue: mockWsJwtAuthService },
           { provide: MediasoupService, useValue: mediasoupService },
-          { provide: WsGateway, useValue: mockWsGateway }
+          { provide: WsGateway, useValue: { emitVocalsUsersUpdate: jest.fn(), emitVocalsSnapshot: jest.fn() } },
         ],
       }).compile();
 

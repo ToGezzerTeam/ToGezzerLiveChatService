@@ -33,17 +33,6 @@ export class WsGateway {
     );
   }
 
-  private vocalRoomsState: Map<string, { serverId: string; users: any[] }> =
-    new Map();
-
-  public updateVocalRoomState(serverId: string, roomId: string, users: any[]) {
-    if (users.length > 0) {
-      this.vocalRoomsState.set(roomId, { serverId, users });
-    } else {
-      this.vocalRoomsState.delete(roomId);
-    }
-  }
-
   @SubscribeMessage('connectServer')
   async handleConnectServer(
     @MessageBody() serverUuid: string,
@@ -51,19 +40,6 @@ export class WsGateway {
   ) {
     const userId = this.wsJwtAuthService.authenticateSocket(client).uuid;
     await client.join(serverUuid);
-    const snapshot: Record<string, any[]> = {};
-    for (const [
-      roomId,
-      { serverId, users },
-    ] of this.vocalRoomsState.entries()) {
-      if (serverId === serverUuid) {
-        snapshot[roomId] = users;
-      }
-    }
-    if (Object.keys(snapshot).length > 0) {
-      client.emit('vocalsSnapshot', snapshot);
-    }
-
     this.logger.log(
       `Socket ${client.id} (user ${userId}) connected server ${serverUuid}`,
     );
@@ -125,17 +101,25 @@ export class WsGateway {
     this.server?.to(message.serverUuid).emit('room', message);
   }
 
-  public forwardVocalRoomUpdate(
-    serverId: string,
-    roomId: string,
-    users: any[],
-  ) {
-    this.server?.to(serverId).emit('vocalsUsersUpdate', { roomId, users });
+  public emitVocalsUsersUpdate(serverUuid: string, payload: any) {
+    if (!serverUuid) {
+      this.logger.warn('vocalsUsersUpdate: serverUuid manquant');
+      return;
+    }
+    this.logger.log(
+      `Emitting vocalsUsersUpdate to server ${serverUuid}: ${JSON.stringify(payload)}`,
+    );
+    this.server?.to(serverUuid).emit('vocalsUsersUpdate', payload);
   }
 
-  public forwardVocalMediaState(serverId: string, roomId: string, data: any) {
-    this.server
-      ?.to(serverId)
-      .emit('userMediaStateChanged', { roomId, ...data });
+  public emitVocalsSnapshot(serverUuid: string, payload: any) {
+    if (!serverUuid) {
+      this.logger.warn('vocalsSnapshot: serverUuid manquant');
+      return;
+    }
+    this.logger.log(
+      `Emitting vocalsSnapshot to server ${serverUuid}: ${JSON.stringify(payload)}`,
+    );
+    this.server?.to(serverUuid).emit('vocalsSnapshot', payload);
   }
 }
