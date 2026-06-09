@@ -33,6 +33,17 @@ export class WsGateway {
     );
   }
 
+  private vocalRoomsState: Map<string, { serverId: string; users: any[] }> =
+    new Map();
+
+  public updateVocalRoomState(serverId: string, roomId: string, users: any[]) {
+    if (users.length > 0) {
+      this.vocalRoomsState.set(roomId, { serverId, users });
+    } else {
+      this.vocalRoomsState.delete(roomId);
+    }
+  }
+
   @SubscribeMessage('connectServer')
   async handleConnectServer(
     @MessageBody() serverUuid: string,
@@ -40,6 +51,19 @@ export class WsGateway {
   ) {
     const userId = this.wsJwtAuthService.authenticateSocket(client).uuid;
     await client.join(serverUuid);
+    const snapshot: Record<string, any[]> = {};
+    for (const [
+      roomId,
+      { serverId, users },
+    ] of this.vocalRoomsState.entries()) {
+      if (serverId === serverUuid) {
+        snapshot[roomId] = users;
+      }
+    }
+    if (Object.keys(snapshot).length > 0) {
+      client.emit('vocalsSnapshot', snapshot);
+    }
+
     this.logger.log(
       `Socket ${client.id} (user ${userId}) connected server ${serverUuid}`,
     );
@@ -99,5 +123,19 @@ export class WsGateway {
       `Envoi message ${message.statusEvent} room vers server ${message.serverUuid}`,
     );
     this.server?.to(message.serverUuid).emit('room', message);
+  }
+
+  public forwardVocalRoomUpdate(
+    serverId: string,
+    roomId: string,
+    users: any[],
+  ) {
+    this.server?.to(serverId).emit('vocalsUsersUpdate', { roomId, users });
+  }
+
+  public forwardVocalMediaState(serverId: string, roomId: string, data: any) {
+    this.server
+      ?.to(serverId)
+      .emit('userMediaStateChanged', { roomId, ...data });
   }
 }
